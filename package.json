@@ -1,0 +1,15 @@
+{
+  "name": "sql-lab-platform",
+  "version": "1.0.0",
+  "description": "Web-Based Multi-Tenant SQL Lab Platform for University Students",
+  "scripts": {
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm start",
+    "build:frontend": "cd frontend && npm run build",
+    "start:backend": "cd backend && npm start"
+  },
+  "keywords": ["sql", "lab", "education", "database", "nodejs", "react"],
+  "author": "IOBM",
+  "license": "MIT"
+}
