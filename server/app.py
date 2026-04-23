@@ -754,13 +754,24 @@ def get_history():
     
     db = get_db()
     cursor = db.cursor()
-    cursor.execute('''
-        SELECT * FROM query_logs 
-        WHERE user_id = %s 
-        ORDER BY timestamp DESC 
-        LIMIT %s
-    ''', (user_id, limit))
-    history = cursor.fetchall()
+    
+    if USE_LOCAL_SQLITE:
+        cursor.execute('''
+            SELECT * FROM query_logs 
+            WHERE user_id = ? 
+            ORDER BY timestamp DESC 
+            LIMIT ?
+        ''', (user_id, limit))
+        rows = cursor.fetchall()
+        history = [dict(row) for row in rows]
+    else:
+        cursor.execute('''
+            SELECT * FROM query_logs 
+            WHERE user_id = %s 
+            ORDER BY timestamp DESC 
+            LIMIT %s
+        ''', (user_id, limit))
+        history = cursor.fetchall()
     cursor.close()
     
     return jsonify({'history': history})
@@ -773,16 +784,29 @@ def get_stats():
     
     db = get_db()
     cursor = db.cursor()
-    cursor.execute('''
-        SELECT 
-            COUNT(*) as total_queries,
-            SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful_queries,
-            SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failed_queries,
-            AVG(execution_time_ms) as avg_execution_time
-        FROM query_logs 
-        WHERE user_id = %s
-    ''', (user_id,))
-    stats = cursor.fetchone()
+    
+    if USE_LOCAL_SQLITE:
+        cursor.execute('''
+            SELECT 
+                COUNT(*) as total_queries,
+                SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful_queries,
+                SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failed_queries,
+                AVG(execution_time_ms) as avg_execution_time
+            FROM query_logs 
+            WHERE user_id = ?
+        ''', (user_id,))
+        stats = dict(cursor.fetchone())
+    else:
+        cursor.execute('''
+            SELECT 
+                COUNT(*) as total_queries,
+                SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful_queries,
+                SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failed_queries,
+                AVG(execution_time_ms) as avg_execution_time
+            FROM query_logs 
+            WHERE user_id = %s
+        ''', (user_id,))
+        stats = cursor.fetchone()
     cursor.close()
     
     return jsonify({'stats': stats})
@@ -795,51 +819,65 @@ def get_stats():
 def admin_dashboard():
     user_id = int(get_jwt_identity())
     
-    # Verify admin
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute('SELECT role FROM users WHERE id = %s', (user_id,))
-    user = cursor.fetchone()
+    # Verify admin - use auth_db for users table
+    auth_db = get_auth_db()
+    auth_cursor = auth_db.cursor()
+    auth_cursor.execute('SELECT role FROM users WHERE id = ?', (user_id,))
+    user = auth_cursor.fetchone()
     
-    if not user or user['role'] != 'admin':
-        cursor.close()
+    if not user or user[3] != 'admin':
+        auth_cursor.close()
         return jsonify({'error': 'Admin access required'}), 403
     
-    # Get stats
-    cursor.execute('SELECT COUNT(*) as count FROM users WHERE role = "student"')
-    total_students = cursor.fetchone()['count']
+    # Get stats from SQL query database
+    db = get_db()
+    cursor = db.cursor()
     
-    cursor.execute('SELECT COUNT(*) as count FROM users WHERE role = "student" AND is_verified = TRUE')
-    verified_students = cursor.fetchone()['count']
-    
-    cursor.execute('''
-        SELECT 
-            COUNT(*) as total_queries,
-            SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful,
-            SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failed,
-            AVG(execution_time_ms) as avg_time
-        FROM query_logs
-    ''')
-    query_stats = cursor.fetchone()
-    
-    cursor.execute('''
-        SELECT ql.*, u.name, u.email 
-        FROM query_logs ql 
-        JOIN users u ON ql.user_id = u.id 
-        ORDER BY ql.timestamp DESC 
-        LIMIT 20
-    ''')
-    recent_queries = cursor.fetchall()
+    if USE_LOCAL_SQLITE:
+        cursor.execute('SELECT COUNT(*) as count FROM query_logs')
+        total_queries = cursor.fetchone()[0]
+        
+        cursor.execute('''
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful,
+                SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failed
+            FROM query_logs
+        ''')
+        query_stats = dict(cursor.fetchone())
+        
+        cursor.execute('SELECT * FROM query_logs ORDER BY timestamp DESC LIMIT 20')
+        rows = cursor.fetchall()
+        recent_queries = [dict(row) for row in rows]
+    else:
+        cursor.execute('SELECT COUNT(*) as count FROM query_logs')
+        total_queries = cursor.fetchone()['count']
+        
+        cursor.execute('''
+            SELECT 
+                COUNT(*) as total_queries,
+                SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful,
+                SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as failed,
+                AVG(execution_time_ms) as avg_time
+            FROM query_logs
+        ''')
+        query_stats = cursor.fetchone()
+        
+        cursor.execute('''
+            SELECT ql.*, u.name, u.email 
+            FROM query_logs ql 
+            JOIN users u ON ql.user_id = u.id 
+            ORDER BY ql.timestamp DESC 
+            LIMIT 20
+        ''')
+        recent_queries = cursor.fetchall()
     
     cursor.close()
     
     return jsonify({
-        'totalStudents': total_students,
-        'verifiedStudents': verified_students,
-        'totalQueries': query_stats['total_queries'] or 0,
-        'successfulQueries': query_stats['successful'] or 0,
-        'failedQueries': query_stats['failed'] or 0,
-        'avgExecutionTime': round(query_stats['avg_time'] or 0),
+        'totalQueries': total_queries or 0,
+        'successfulQueries': query_stats.get('successful', 0) or 0,
+        'failedQueries': query_stats.get('failed', 0) or 0,
         'recentQueries': recent_queries
     })
 
