@@ -46,6 +46,39 @@ def is_approved(email):
 # ============= Pending Requests Storage =============
 PENDING_REQUESTS = []
 
+def init_db():
+    try:
+        db = get_mysql()
+        cursor = db.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password VARCHAR(255),
+                role VARCHAR(50) DEFAULT 'student',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS query_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_email VARCHAR(255) NOT NULL,
+                query TEXT NOT NULL,
+                success BOOLEAN DEFAULT FALSE,
+                execution_time VARCHAR(50),
+                rows_affected INT DEFAULT 0,
+                error TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        db.commit()
+        cursor.close()
+        db.close()
+        print("Database tables initialized")
+    except Exception as e:
+        print(f"DB init error: {e}")
+
 def save_pending_request(name, email, password):
     PENDING_REQUESTS.append({
         'name': name,
@@ -62,8 +95,49 @@ def remove_pending_request(email):
     PENDING_REQUESTS = [r for r in PENDING_REQUESTS if r['email'] != email]
 
 def add_approved_user(name, email, password):
-    # This would add to database in production
-    pass
+    try:
+        db = get_mysql()
+        cursor = db.cursor()
+        hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+        cursor.execute(
+            "INSERT INTO users (name, email, password, role) VALUES (%s, %s, %s, %s)",
+            (name, email, hashed, 'student')
+        )
+        db.commit()
+        cursor.close()
+        db.close()
+    except Exception as e:
+        print(f"Add user error: {e}")
+
+def get_total_users():
+    try:
+        db = get_mysql()
+        cursor = db.cursor()
+        cursor.execute("SELECT COUNT(*) as count FROM users")
+        result = cursor.fetchone()
+        cursor.close()
+        db.close()
+        return result.get('count', 0) if result else 0
+    except:
+        return 0
+
+def get_query_stats():
+    try:
+        db = get_mysql()
+        cursor = db.cursor()
+        cursor.execute("SELECT COUNT(*) as total, SUM(success) as successful FROM query_logs")
+        result = cursor.fetchone()
+        cursor.execute("SELECT AVG(execution_time) as avg_time FROM query_logs WHERE execution_time IS NOT NULL")
+        avg_result = cursor.fetchone()
+        cursor.close()
+        db.close()
+        return {
+            'total': result.get('count', 0) if result else 0,
+            'successful': result.get('successful', 0) if result else 0,
+            'avg_time': avg_result.get('avg_time', 0) if avg_result else 0
+        }
+    except:
+        return {'total': 0, 'successful': 0, 'avg_time': 0}
 
 def get_query_type(query):
     q = query.strip().upper()
@@ -202,12 +276,13 @@ def get_stats():
     if not is_admin(user_email):
         return jsonify({'error': 'Admin access required'}), 403
     
+    query_stats = get_query_stats()
     return jsonify({
-        'totalUsers': len(get_pending_requests()),
-        'totalQueries': 0,
-        'successfulQueries': 0,
-        'unsuccessfulQueries': 0,
-        'avgTime': '0ms'
+        'totalUsers': get_total_users(),
+        'totalQueries': query_stats['total'],
+        'successfulQueries': query_stats['successful'],
+        'unsuccessfulQueries': query_stats['total'] - query_stats['successful'],
+        'avgTime': f"{query_stats['avg_time']}ms"
     })
 
 @app.route('/api/admin/history', methods=['GET'])
@@ -249,8 +324,11 @@ def approve_user():
     pending_user = pending[0]
     remove_pending_request(email)
     
+    # Add user to database
+    add_approved_user(pending_user['name'], pending_user['email'], pending_user['password'])
+    
     return jsonify({
-        'message': f'User {email} approved',
+        'message': f'User {email} approved and created',
         'user': {
             'email': pending_user['email'],
             'name': pending_user['name']
@@ -435,9 +513,9 @@ def health():
         return jsonify({'status': 'error', 'database': str(e)}), 500
 
 if __name__ == '__main__':
+    init_db()
     print("=" * 50)
     print("SQL Lab Backend")
-    print("Database: MySQL (XAMPP 3306) - SQL Queries Only")
-    print("Auth: Firebase")
+    print("Database: TiDB Cloud")
     print("=" * 50)
     app.run(host='0.0.0.0', port=5000, debug=True)
