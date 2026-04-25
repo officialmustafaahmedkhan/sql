@@ -56,7 +56,16 @@ def send_email(to_email, subject, html_content):
         print(f"[EMAIL ERROR] {type(e).__name__}: {e}")
         return False
 
+# =====================================================
 # Database Configuration
+# =====================================================
+# Default to SQLite for local development / Replit
+USE_LOCAL_SQLITE = os.getenv('USE_LOCAL_SQLITE', '').lower() in ('true', '1', 'yes', '')
+
+# SQLite path for practice queries
+SQL_DB_PATH = os.getenv('SQL_DB_PATH', './sqllab.db')
+
+# MySQL Configuration (for production with real MySQL)
 DB_CONFIG = {
     'host': os.getenv('DB_HOST', 'sql12.freesqldatabase.com'),
     'port': int(os.getenv('DB_PORT', 3306)),
@@ -68,20 +77,14 @@ DB_CONFIG = {
     'ssl': {'ssl_disabled': True}
 }
 
-# Disable SSL warning
-import pymysql
-pymysql.version_info = (2, 0, 3, 'final', 0)
-pymysql.install_as_MySQLdb()
+# For backwards compatibility - check legacy env var
+if not USE_LOCAL_SQLITE and os.getenv('DB_HOST'):
+    USE_LOCAL_SQLITE = False
+elif not USE_LOCAL_SQLITE and os.getenv('USE_LOCAL_SQLITE', 'true').lower() == 'true':
+    USE_LOCAL_SQLITE = True
 
-USE_LOCAL_SQLITE = os.getenv('USE_LOCAL_SQLITE', 'true').lower() == 'true'
-
-# SQLite path for practice queries
-SQL_DB_PATH = os.getenv('SQL_DB_PATH', './sqllab.db')
-
-# Disable SSL warning
-import pymysql
-pymysql.version_info = (2, 0, 3, 'final', 0)
-pymysql.install_as_MySQLdb()
+print(f"[DB] USE_LOCAL_SQLITE: {USE_LOCAL_SQLITE}")
+print(f"[DB] SQL_DB_PATH: {SQL_DB_PATH}")
 
 # Query Security Settings
 QUERY_TIMEOUT_MS = int(os.getenv('QUERY_TIMEOUT_MS', 300))
