@@ -36,6 +36,65 @@ MYSQL_CONFIG = {
 def get_mysql():
     return pymysql.connect(**MYSQL_CONFIG)
 
+def log_query(user_email, query, success, execution_time, rows_affected, error):
+    try:
+        db = get_mysql()
+        cursor = db.cursor()
+        cursor.execute(
+            "INSERT INTO query_logs (user_email, query, success, execution_time, rows_affected, error) VALUES (%s, %s, %s, %s, %s, %s)",
+            (user_email, query[:1000], success, execution_time, rows_affected, error)
+        )
+        db.commit()
+        cursor.close()
+        db.close()
+    except Exception as e:
+        print(f"Log query error: {e}")
+
+def get_total_users():
+    try:
+        db = get_mysql()
+        cursor = db.cursor()
+        cursor.execute("SELECT COUNT(*) as count FROM users")
+        result = cursor.fetchone()
+        count = result.get('count', 0) if result else 0
+        print(f"Total users: {count}")
+        cursor.close()
+        db.close()
+        return count
+    except Exception as e:
+        print(f"Get total users error: {e}")
+        return 0
+
+def get_query_stats():
+    try:
+        db = get_mysql()
+        cursor = db.cursor()
+        cursor.execute("SELECT COUNT(*) as total, SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful FROM query_logs")
+        result = cursor.fetchone()
+        cursor.execute("SELECT AVG(execution_time) as avg_time FROM query_logs WHERE execution_time IS NOT NULL AND execution_time != ''")
+        avg_result = cursor.fetchone()
+        cursor.close()
+        db.close()
+        
+        total = result.get('count', 0) if result else 0
+        successful = result.get('successful', 0) if result else 0
+        
+        avg_time = 0
+        if avg_result and avg_result.get('avg_time'):
+            try:
+                avg_time = float(str(avg_result.get('avg_time')).replace('ms', ''))
+            except:
+                avg_time = 0
+        
+        return {
+            'total': total,
+            'successful': successful,
+            'avg_time': f"{avg_time:.2f}"
+        }
+    except Exception as e:
+        print(f"Query stats error: {e}")
+        return {'total': 0, 'successful': 0, 'avg_time': '0'}
+
 def is_admin(email):
     admin_emails = os.getenv('ADMIN_EMAILS', 'admin@iobm.edu.pk').split(',')
     return email.strip() in admin_emails
