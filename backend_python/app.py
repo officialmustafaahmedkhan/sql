@@ -16,14 +16,7 @@ app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET', 'sql_lab_jwt_secret_2024')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=7)
 
-CORS(app, origins=[
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "https://sql-n5k6.onrender.com",
-    "https://maksqlcompiler.netlify.app",
-    "https://*.netlify.app",
-    "https://*.vercel.app"
-])
+CORS(app, origins="*")
 jwt = JWTManager(app)
 
 # ============= MySQL (TiDB Cloud) - SSL Required =============
