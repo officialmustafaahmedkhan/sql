@@ -36,7 +36,8 @@ def get_mysql():
     return pymysql.connect(**MYSQL_CONFIG)
 
 def is_admin(email):
-    return email.strip() in ADMIN_EMAILS
+    admin_emails = os.getenv('ADMIN_EMAILS', 'admin@iobm.edu.pk').split(',')
+    return email.strip() in admin_emails
 
 def get_query_type(query):
     q = query.strip().upper()
