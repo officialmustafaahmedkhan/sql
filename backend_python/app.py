@@ -20,6 +20,7 @@ CORS(app, origins=[
     "http://localhost:3000",
     "http://localhost:5173",
     "https://sql-n5k6.onrender.com",
+    "https://maksqlcompiler.netlify.app",
     "https://*.netlify.app",
     "https://*.vercel.app"
 ])
