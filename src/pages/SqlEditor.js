@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
-import { Play, Download, AlertCircle, CheckCircle, Clock, Rows, BookOpen } from 'lucide-react';
+import { Play, Download, AlertCircle, CheckCircle, Clock, BookOpen } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Clock, Copy, Trash2, Play } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Clock, Copy, Play } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 function History({ onLoadQuery }) {
@@ -7,11 +7,7 @@ function History({ onLoadQuery }) {
   const [loading, setLoading] = useState(true);
   const { getQueryHistory } = useAuth();
 
-  useEffect(() => {
-    loadHistory();
-  }, []);
-
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getQueryHistory();
@@ -21,7 +17,11 @@ function History({ onLoadQuery }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getQueryHistory]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   const copyQuery = (query) => {
     navigator.clipboard.writeText(query);
@@ -44,7 +44,7 @@ function History({ onLoadQuery }) {
     <div>
       <div className="page-header">
         <h1>Query History</h1>
-        <p>View your past SQL queries from Firebase</p>
+        <p>View your past SQL queries</p>
       </div>
 
       <div className="history-list">

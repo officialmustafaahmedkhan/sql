@@ -1,18 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Users, Shield, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { getAllUsers, makeAdmin } = useAuth();
-  const { user } = useAuth();
+  const { getAllUsers, makeAdmin, user } = useAuth();
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getAllUsers();
@@ -22,7 +17,11 @@ function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAllUsers]);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   const handleMakeAdmin = async (uid) => {
     try {
