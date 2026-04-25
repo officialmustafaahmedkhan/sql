@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Shield, AlertTriangle, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 
 const API_URL = 'https://sql-n5k6.onrender.com/api';
 
 function AdminDashboard() {
-  const [users, setUsers] = useState([]);
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
