@@ -4,7 +4,7 @@ import { Play, Download, AlertCircle, CheckCircle, Clock, BookOpen } from 'lucid
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = 'https://sql-n5k6.onrender.com/api';
 
 function SqlEditor() {
   const [query, setQuery] = useState('SELECT * FROM users;');
