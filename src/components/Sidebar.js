@@ -7,8 +7,7 @@ import {
   LayoutDashboard, 
   LogOut, 
   Code2,
-  UserPlus,
-  Key
+  UserPlus
 } from 'lucide-react';
 
 function Sidebar() {

@@ -13,7 +13,6 @@ function AdminDashboard() {
     unsuccessfulQueries: 0,
     avgTime: '0ms'
   });
-  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -21,7 +20,6 @@ function AdminDashboard() {
   }, []);
 
   const loadStats = async () => {
-    setLoading(true);
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(`${API_URL}/admin/stats`, {
@@ -30,8 +28,6 @@ function AdminDashboard() {
       setStats(response.data);
     } catch (err) {
       console.error('Failed to load stats:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
