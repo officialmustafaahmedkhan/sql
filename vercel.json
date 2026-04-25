@@ -3,6 +3,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": "build",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://your-backend.railway.app/api/:splat" }
+    { "source": "/api/(.*)", "destination": "https://sql-n5k6.onrender.com/api/:splat" }
   ]
 }
