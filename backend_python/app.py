@@ -112,7 +112,25 @@ def split_queries(sql):
 
 @app.route('/api/auth/signup', methods=['POST'])
 def signup():
-    return jsonify({'message': 'Signup disabled. Use Firebase Auth.', 'success': False}), 400
+    data = request.get_json()
+    email = data.get('email')
+    name = data.get('name')
+    password = data.get('password')
+    
+    if not all([email, name, password]):
+        return jsonify({'error': 'All fields required'}), 400
+    
+    access_token = create_access_token(identity=email)
+    
+    return jsonify({
+        'message': 'Signup successful',
+        'token': access_token,
+        'user': {
+            'email': email,
+            'name': name,
+            'role': 'admin' if is_admin(email) else 'student'
+        }
+    }), 201
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
