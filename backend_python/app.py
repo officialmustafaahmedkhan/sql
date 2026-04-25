@@ -28,10 +28,10 @@ jwt = JWTManager(app)
 # ============= MySQL (TiDB Cloud) - SSL Required =============
 MYSQL_CONFIG = {
     'host': os.getenv('DB_HOST', '127.0.0.1'),
-    'port': int(os.getenv('DB_PORT', 3306)),
-    'user': os.getenv('DB_USER', 'root'),
+    'port': int(os.getenv('DB_PORT', 4000)),
+    'user': os.getenv('DB_USER', os.getenv('DB_USERNAME', 'root')),
     'password': os.getenv('DB_PASSWORD', 'admin'),
-    'database': os.getenv('DB_NAME', 'sqllab'),
+    'database': os.getenv('DB_NAME', os.getenv('DB_DATABASE', 'sqllab')),
     'charset': 'utf8mb4',
     'cursorclass': pymysql.cursors.DictCursor,
     'ssl': {'ssl': {}},
