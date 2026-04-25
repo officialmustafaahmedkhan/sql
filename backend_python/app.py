@@ -164,6 +164,20 @@ def add_approved_user(name, email, password):
         print(f"Add user error: {e}")
         return False
 
+def log_query(user_email, query, success, execution_time, rows_affected, error):
+    try:
+        db = get_mysql()
+        cursor = db.cursor()
+        cursor.execute(
+            "INSERT INTO query_logs (user_email, query, success, execution_time, rows_affected, error) VALUES (%s, %s, %s, %s, %s, %s)",
+            (user_email, query[:1000], success, execution_time, rows_affected, error)
+        )
+        db.commit()
+        cursor.close()
+        db.close()
+    except Exception as e:
+        print(f"Log query error: {e}")
+
 def get_total_users():
     try:
         db = get_mysql()
@@ -180,19 +194,32 @@ def get_query_stats():
     try:
         db = get_mysql()
         cursor = db.cursor()
-        cursor.execute("SELECT COUNT(*) as total, SUM(success) as successful FROM query_logs")
+        cursor.execute("SELECT COUNT(*) as total, SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful FROM query_logs")
         result = cursor.fetchone()
-        cursor.execute("SELECT AVG(execution_time) as avg_time FROM query_logs WHERE execution_time IS NOT NULL")
+        cursor.execute("SELECT AVG(execution_time) as avg_time FROM query_logs WHERE execution_time IS NOT NULL AND execution_time != ''")
         avg_result = cursor.fetchone()
         cursor.close()
         db.close()
+        
+        total = result.get('count', 0) if result else 0
+        successful = result.get('successful', 0) if result else 0
+        
+        # Parse average time from string (e.g., "15.23ms" -> 15.23)
+        avg_time = 0
+        if avg_result and avg_result.get('avg_time'):
+            try:
+                avg_time = float(str(avg_result.get('avg_time')).replace('ms', ''))
+            except:
+                avg_time = 0
+        
         return {
-            'total': result.get('count', 0) if result else 0,
-            'successful': result.get('successful', 0) if result else 0,
-            'avg_time': avg_result.get('avg_time', 0) if avg_result else 0
+            'total': total,
+            'successful': successful,
+            'avg_time': f"{avg_time:.2f}"
         }
-    except:
-        return {'total': 0, 'successful': 0, 'avg_time': 0}
+    except Exception as e:
+        print(f"Query stats error: {e}")
+        return {'total': 0, 'successful': 0, 'avg_time': '0'}
 
 def get_query_type(query):
     q = query.strip().upper()
@@ -438,6 +465,8 @@ def execute_query():
             
             try:
                 cursor.execute(query_with_limit)
+                exec_time = time.time()
+                execution_time_str = f"{(exec_time - start_time)*1000:.2f}ms"
                 
                 if is_select:
                     rows = cursor.fetchall()
@@ -448,6 +477,7 @@ def execute_query():
                         'results': rows,
                         'rowsAffected': len(rows)
                     })
+                    log_query(user_email, query, True, execution_time_str, len(rows), None)
                 else:
                     results.append({
                         'query': query,
@@ -456,6 +486,7 @@ def execute_query():
                         'results': None,
                         'rowsAffected': cursor.rowcount
                     })
+                    log_query(user_email, query, True, execution_time_str, cursor.rowcount, None)
             except Exception as e:
                 error_msg = str(e)
                 errors.append({'query': query[:50], 'error': error_msg})
@@ -467,6 +498,7 @@ def execute_query():
                     'results': None,
                     'rowsAffected': 0
                 })
+                log_query(user_email, query, False, '0ms', 0, error_msg)
         
         db.commit()
         execution_time = f"{(time.time() - start_time)*1000:.2f}ms"
