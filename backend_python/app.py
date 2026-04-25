@@ -60,6 +60,8 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        db.commit()
+        
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS query_logs (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -72,6 +74,8 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        db.commit()
+        
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS pending_requests (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -84,10 +88,25 @@ def init_db():
         db.commit()
         cursor.close()
         db.close()
-        print("Database tables initialized")
+        print("Database tables initialized successfully")
         load_pending_requests()
     except Exception as e:
         print(f"DB init error: {e}")
+
+def load_pending_requests():
+    global PENDING_REQUESTS
+    try:
+        db = get_mysql()
+        cursor = db.cursor()
+        cursor.execute("SELECT name, email, password, created_at FROM pending_requests ORDER BY created_at DESC")
+        rows = cursor.fetchall()
+        PENDING_REQUESTS = [{'name': r['name'], 'email': r['email'], 'password': r['password'], 'timestamp': str(r['created_at']) if r['created_at'] else datetime.now().isoformat()} for r in rows]
+        print(f"Loaded {len(PENDING_REQUESTS)} pending requests")
+        cursor.close()
+        db.close()
+    except Exception as e:
+        print(f"Load pending error: {e}")
+        PENDING_REQUESTS = []
 
 def load_pending_requests():
     global PENDING_REQUESTS
@@ -150,13 +169,16 @@ def add_approved_user(name, email, password):
         if cursor.fetchone():
             cursor.close()
             db.close()
+            print(f"User {email} already exists")
             return False  # User already exists
+        
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         cursor.execute(
             "INSERT INTO users (name, email, password, role) VALUES (%s, %s, %s, %s)",
             (name, email, hashed, 'student')
         )
         db.commit()
+        print(f"User {email} added successfully")
         cursor.close()
         db.close()
         return True
@@ -164,30 +186,19 @@ def add_approved_user(name, email, password):
         print(f"Add user error: {e}")
         return False
 
-def log_query(user_email, query, success, execution_time, rows_affected, error):
-    try:
-        db = get_mysql()
-        cursor = db.cursor()
-        cursor.execute(
-            "INSERT INTO query_logs (user_email, query, success, execution_time, rows_affected, error) VALUES (%s, %s, %s, %s, %s, %s)",
-            (user_email, query[:1000], success, execution_time, rows_affected, error)
-        )
-        db.commit()
-        cursor.close()
-        db.close()
-    except Exception as e:
-        print(f"Log query error: {e}")
-
 def get_total_users():
     try:
         db = get_mysql()
         cursor = db.cursor()
         cursor.execute("SELECT COUNT(*) as count FROM users")
         result = cursor.fetchone()
+        count = result.get('count', 0) if result else 0
+        print(f"Total users: {count}")
         cursor.close()
         db.close()
-        return result.get('count', 0) if result else 0
-    except:
+        return count
+    except Exception as e:
+        print(f"Get total users error: {e}")
         return 0
 
 def get_query_stats():
