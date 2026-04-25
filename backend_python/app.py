@@ -25,7 +25,7 @@ CORS(app, origins=[
 ])
 jwt = JWTManager(app)
 
-# ============= MySQL (XAMPP) - SQL Queries Only =============
+# ============= MySQL (TiDB Cloud) - SSL Required =============
 MYSQL_CONFIG = {
     'host': os.getenv('DB_HOST', '127.0.0.1'),
     'port': int(os.getenv('DB_PORT', 3306)),
@@ -33,11 +33,10 @@ MYSQL_CONFIG = {
     'password': os.getenv('DB_PASSWORD', 'admin'),
     'database': os.getenv('DB_NAME', 'sqllab'),
     'charset': 'utf8mb4',
-    'cursorclass': pymysql.cursors.DictCursor
+    'cursorclass': pymysql.cursors.DictCursor,
+    'ssl': {'ssl': {}},
+    'ssl_disabled': False
 }
-
-# Admin emails from env
-ADMIN_EMAILS = os.getenv('ADMIN_EMAILS', 'admin@iobm.edu.pk').split(',')
 
 def get_mysql():
     return pymysql.connect(**MYSQL_CONFIG)
