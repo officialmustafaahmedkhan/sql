@@ -195,6 +195,30 @@ def get_profile():
 
 # ============= Admin Routes =============
 
+@app.route('/api/admin/stats', methods=['GET'])
+@jwt_required()
+def get_stats():
+    user_email = get_jwt_identity()
+    if not is_admin(user_email):
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    return jsonify({
+        'totalUsers': len(get_pending_requests()),
+        'totalQueries': 0,
+        'successfulQueries': 0,
+        'unsuccessfulQueries': 0,
+        'avgTime': '0ms'
+    })
+
+@app.route('/api/admin/history', methods=['GET'])
+@jwt_required()
+def get_query_history():
+    user_email = get_jwt_identity()
+    if not is_admin(user_email):
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    return jsonify({'history': []})
+
 @app.route('/api/admin/pending', methods=['GET'])
 @jwt_required()
 def get_pending():
@@ -212,13 +236,12 @@ def approve_user():
     
     data = request.get_json()
     email = data.get('email')
-    action = data.get('action')  # 'approve' or 'reject'
+    action = data.get('action')
     
     if action == 'reject':
         remove_pending_request(email)
         return jsonify({'message': 'Request rejected'})
     
-    # Find pending request
     pending = [r for r in get_pending_requests() if r['email'] == email]
     if not pending:
         return jsonify({'error': 'Request not found'}), 404
@@ -226,7 +249,6 @@ def approve_user():
     pending_user = pending[0]
     remove_pending_request(email)
     
-    # Create the user (in production, add to database)
     return jsonify({
         'message': f'User {email} approved',
         'user': {

@@ -7,6 +7,7 @@ import {
   LayoutDashboard, 
   LogOut, 
   Code2,
+  UserPlus,
   Key
 } from 'lucide-react';
 
@@ -41,11 +42,11 @@ function Sidebar() {
           <>
             <NavLink to="/admin" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
               <LayoutDashboard size={20} />
-              <span>Admin Dashboard</span>
+              <span>Dashboard</span>
             </NavLink>
-            <NavLink to="/admin-otps" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
-              <Key size={20} />
-              <span>View OTPs</span>
+            <NavLink to="/pending" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+              <UserPlus size={20} />
+              <span>Pending Requests</span>
             </NavLink>
           </>
         )}

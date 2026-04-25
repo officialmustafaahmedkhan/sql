@@ -6,6 +6,7 @@ import Signup from './pages/Signup';
 import SqlEditor from './pages/SqlEditor';
 import History from './pages/History';
 import AdminDashboard from './pages/AdminDashboard';
+import PendingRequests from './pages/PendingRequests';
 import Sidebar from './components/Sidebar';
 import { Sun, Moon } from 'lucide-react';
 
@@ -48,7 +49,10 @@ function App() {
               <Route path="/editor" element={<SqlEditor />} />
               <Route path="/history" element={<History />} />
               {user.role === 'admin' && (
-                <Route path="/admin" element={<AdminDashboard />} />
+                <>
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/pending" element={<PendingRequests />} />
+                </>
               )}
             </Routes>
           </main>

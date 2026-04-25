@@ -1,55 +1,37 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, CheckCircle, XCircle, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, Play, CheckCircle, XCircle, Clock, Activity } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 
 const API_URL = 'https://sql-n5k6.onrender.com/api';
 
 function AdminDashboard() {
-  const [pending, setPending] = useState([]);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalQueries: 0,
+    successfulQueries: 0,
+    unsuccessfulQueries: 0,
+    avgTime: '0ms'
+  });
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  const loadData = useCallback(async () => {
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/admin/pending`, {
+      const response = await axios.get(`${API_URL}/admin/stats`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setPending(response.data.pending || []);
+      setStats(response.data);
     } catch (err) {
-      console.error('Failed to load data:', err);
+      console.error('Failed to load stats:', err);
     } finally {
       setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const handleApprove = async (email) => {
-    try {
-      const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/admin/approve`, { email, action: 'approve' }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      await loadData();
-    } catch (err) {
-      console.error('Approve error:', err);
-    }
-  };
-
-  const handleReject = async (email) => {
-    try {
-      const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/admin/approve`, { email, action: 'reject' }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      await loadData();
-    } catch (err) {
-      console.error('Reject error:', err);
     }
   };
 
@@ -57,7 +39,6 @@ function AdminDashboard() {
     return (
       <div className="auth-container">
         <div className="auth-card" style={{ textAlign: 'center' }}>
-          <AlertTriangle size={48} color="var(--warning)" />
           <h2>Access Denied</h2>
           <p>Only administrators can access this page.</p>
         </div>
@@ -69,55 +50,40 @@ function AdminDashboard() {
     <div>
       <div className="page-header">
         <h1>Admin Dashboard</h1>
-        <p>Manage users and pending requests</p>
+        <p>SQL Lab Statistics Overview</p>
       </div>
 
-      <div className="results-container" style={{ marginBottom: '24px' }}>
-        <div className="results-header">
-          <strong>Pending Requests ({pending.length})</strong>
+      <div className="stats-grid">
+        <div className="stat-card">
+          <Users size={28} />
+          <div className="value">{stats.totalUsers}</div>
+          <div className="subtext">Total Users</div>
         </div>
-
-        {loading ? (
-          <div className="loading-spinner"><div className="spinner"></div></div>
-        ) : pending.length === 0 ? (
-          <div className="results-empty">No pending requests</div>
-        ) : (
-          <table className="results-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Requested</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pending.map((r, i) => (
-                <tr key={i}>
-                  <td>{r.name}</td>
-                  <td>{r.email}</td>
-                  <td style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Clock size={14} /> {new Date(r.timestamp).toLocaleString()}
-                  </td>
-                  <td>
-                    <button 
-                      onClick={() => handleApprove(r.email)} 
-                      style={{ background: 'var(--success)', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', marginRight: '8px' }}
-                    >
-                      <CheckCircle size={14} /> Approve
-                    </button>
-                    <button 
-                      onClick={() => handleReject(r.email)} 
-                      style={{ background: 'var(--error)', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}
-                    >
-                      <XCircle size={14} /> Reject
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <div className="stat-card">
+          <Play size={28} />
+          <div className="value">{stats.totalQueries}</div>
+          <div className="subtext">Total Queries</div>
+        </div>
+        <div className="stat-card" style={{ borderColor: 'var(--success)' }}>
+          <CheckCircle size={28} />
+          <div className="value" style={{ color: 'var(--success)' }}>{stats.successfulQueries}</div>
+          <div className="subtext">Successful</div>
+        </div>
+        <div className="stat-card" style={{ borderColor: 'var(--error)' }}>
+          <XCircle size={28} />
+          <div className="value" style={{ color: 'var(--error)' }}>{stats.unsuccessfulQueries}</div>
+          <div className="subtext">Failed</div>
+        </div>
+        <div className="stat-card">
+          <Clock size={28} />
+          <div className="value">{stats.avgTime}</div>
+          <div className="subtext">Avg Time</div>
+        </div>
+        <div className="stat-card">
+          <Activity size={28} />
+          <div className="value">{stats.totalQueries > 0 ? ((stats.successfulQueries / stats.totalQueries) * 100).toFixed(1) : 0}%</div>
+          <div className="subtext">Success Rate</div>
+        </div>
       </div>
     </div>
   );
