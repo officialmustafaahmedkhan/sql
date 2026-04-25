@@ -72,32 +72,85 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS pending_requests (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         db.commit()
         cursor.close()
         db.close()
         print("Database tables initialized")
+        load_pending_requests()
     except Exception as e:
         print(f"DB init error: {e}")
 
+def load_pending_requests():
+    global PENDING_REQUESTS
+    try:
+        db = get_mysql()
+        cursor = db.cursor()
+        cursor.execute("SELECT name, email, password, created_at FROM pending_requests ORDER BY created_at DESC")
+        rows = cursor.fetchall()
+        PENDING_REQUESTS = [{'name': r['name'], 'email': r['email'], 'password': r['password'], 'timestamp': r['created_at'].isoformat() if r['created_at'] else datetime.now().isoformat()} for r in rows]
+        cursor.close()
+        db.close()
+    except Exception as e:
+        print(f"Load pending error: {e}")
+
 def save_pending_request(name, email, password):
-    PENDING_REQUESTS.append({
-        'name': name,
-        'email': email,
-        'password': password,
-        'timestamp': datetime.now().isoformat()
-    })
+    try:
+        db = get_mysql()
+        cursor = db.cursor()
+        cursor.execute(
+            "INSERT INTO pending_requests (name, email, password) VALUES (%s, %s, %s)",
+            (name, email, password)
+        )
+        db.commit()
+        cursor.close()
+        db.close()
+        load_pending_requests()
+    except Exception as e:
+        print(f"Save pending error: {e}")
+        # Fallback to in-memory
+        PENDING_REQUESTS.append({
+            'name': name,
+            'email': email,
+            'password': password,
+            'timestamp': datetime.now().isoformat()
+        })
 
 def get_pending_requests():
     return PENDING_REQUESTS
 
 def remove_pending_request(email):
-    global PENDING_REQUESTS
-    PENDING_REQUESTS = [r for r in PENDING_REQUESTS if r['email'] != email]
+    try:
+        db = get_mysql()
+        cursor = db.cursor()
+        cursor.execute("DELETE FROM pending_requests WHERE email = %s", (email,))
+        db.commit()
+        cursor.close()
+        db.close()
+        load_pending_requests()
+    except Exception as e:
+        print(f"Remove pending error: {e}")
+        global PENDING_REQUESTS
+        PENDING_REQUESTS = [r for r in PENDING_REQUESTS if r['email'] != email]
 
 def add_approved_user(name, email, password):
     try:
         db = get_mysql()
         cursor = db.cursor()
+        # Check if user already exists
+        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+        if cursor.fetchone():
+            cursor.close()
+            db.close()
+            return False  # User already exists
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         cursor.execute(
             "INSERT INTO users (name, email, password, role) VALUES (%s, %s, %s, %s)",
@@ -106,8 +159,10 @@ def add_approved_user(name, email, password):
         db.commit()
         cursor.close()
         db.close()
+        return True
     except Exception as e:
         print(f"Add user error: {e}")
+        return False
 
 def get_total_users():
     try:
@@ -324,8 +379,9 @@ def approve_user():
     pending_user = pending[0]
     remove_pending_request(email)
     
-    # Add user to database
-    add_approved_user(pending_user['name'], pending_user['email'], pending_user['password'])
+    # Check if user already exists
+    if not add_approved_user(pending_user['name'], pending_user['email'], pending_user['password']):
+        return jsonify({'error': 'User already exists with this email', 'email': email}), 409
     
     return jsonify({
         'message': f'User {email} approved and created',
