@@ -1,34 +1,56 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Shield, AlertTriangle } from 'lucide-react';
+import { Users, Shield, AlertTriangle, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import axios from 'axios';
+
+const API_URL = 'https://sql-n5k6.onrender.com/api';
 
 function AdminDashboard() {
   const [users, setUsers] = useState([]);
+  const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { getAllUsers, makeAdmin, user } = useAuth();
+  const { user } = useAuth();
 
-  const loadUsers = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getAllUsers();
-      setUsers(data);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/admin/pending`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setPending(response.data.pending || []);
     } catch (err) {
-      console.error('Failed to load users:', err);
+      console.error('Failed to load data:', err);
     } finally {
       setLoading(false);
     }
-  }, [getAllUsers]);
+  }, []);
 
   useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+    loadData();
+  }, [loadData]);
 
-  const handleMakeAdmin = async (uid) => {
+  const handleApprove = async (email) => {
     try {
-      await makeAdmin(uid);
-      await loadUsers();
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/admin/approve`, { email, action: 'approve' }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      await loadData();
     } catch (err) {
-      console.error('Make admin error:', err);
+      console.error('Approve error:', err);
+    }
+  };
+
+  const handleReject = async (email) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/admin/approve`, { email, action: 'reject' }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      await loadData();
+    } catch (err) {
+      console.error('Reject error:', err);
     }
   };
 
@@ -48,67 +70,49 @@ function AdminDashboard() {
     <div>
       <div className="page-header">
         <h1>Admin Dashboard</h1>
-        <p>Manage users and monitor SQL Lab</p>
+        <p>Manage users and pending requests</p>
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <Users size={24} />
-          <div className="value">{users.length}</div>
-          <div className="subtext">Total Users</div>
-        </div>
-        <div className="stat-card">
-          <Shield size={24} />
-          <div className="value">{users.filter(u => u.role === 'admin').length}</div>
-          <div className="subtext">Admins</div>
-        </div>
-        <div className="stat-card">
-          <Users size={24} />
-          <div className="value">{users.filter(u => u.role === 'student').length}</div>
-          <div className="subtext">Students</div>
-        </div>
-      </div>
-
-      <div className="results-container">
+      <div className="results-container" style={{ marginBottom: '24px' }}>
         <div className="results-header">
-          <strong>All Users ({users.length})</strong>
+          <strong>Pending Requests ({pending.length})</strong>
         </div>
 
         {loading ? (
           <div className="loading-spinner"><div className="spinner"></div></div>
+        ) : pending.length === 0 ? (
+          <div className="results-empty">No pending requests</div>
         ) : (
           <table className="results-table">
             <thead>
               <tr>
                 <th>Name</th>
                 <th>Email</th>
-                <th>Role</th>
+                <th>Requested</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map(u => (
-                <tr key={u.uid}>
-                  <td>{u.name || 'N/A'}</td>
-                  <td>{u.email}</td>
-                  <td>
-                    <span style={{ 
-                      color: u.role === 'admin' ? 'var(--success)' : 'var(--primary)',
-                      fontWeight: 600
-                    }}>
-                      {u.role}
-                    </span>
+              {pending.map((r, i) => (
+                <tr key={i}>
+                  <td>{r.name}</td>
+                  <td>{r.email}</td>
+                  <td style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Clock size={14} /> {new Date(r.timestamp).toLocaleString()}
                   </td>
                   <td>
-                    {u.role !== 'admin' && (
-                      <button 
-                        onClick={() => handleMakeAdmin(u.uid)} 
-                        className="btn btn-secondary"
-                        style={{ fontSize: '12px', padding: '4px 8px' }}
-                      >
-                        Make Admin
-                      </button>
-                    )}
+                    <button 
+                      onClick={() => handleApprove(r.email)} 
+                      style={{ background: 'var(--success)', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', marginRight: '8px' }}
+                    >
+                      <CheckCircle size={14} /> Approve
+                    </button>
+                    <button 
+                      onClick={() => handleReject(r.email)} 
+                      style={{ background: 'var(--error)', color: 'white', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      <XCircle size={14} /> Reject
+                    </button>
                   </td>
                 </tr>
               ))}

@@ -63,6 +63,9 @@ function Sidebar() {
           <LogOut size={20} />
           <span>Logout</span>
         </button>
+        <div style={{ padding: '12px 16px', fontSize: '10px', color: 'var(--text-secondary)', textAlign: 'center', borderTop: '1px solid var(--border)', marginTop: '12px' }}>
+          Created by Mustafa Ahmed Khan 2026
+        </div>
       </div>
     </aside>
   );

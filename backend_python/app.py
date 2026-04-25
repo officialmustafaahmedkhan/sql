@@ -1,5 +1,6 @@
 import os
 import time
+import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
@@ -38,6 +39,31 @@ def get_mysql():
 def is_admin(email):
     admin_emails = os.getenv('ADMIN_EMAILS', 'admin@iobm.edu.pk').split(',')
     return email.strip() in admin_emails
+
+def is_approved(email):
+    return is_admin(email)
+
+# ============= Pending Requests Storage =============
+PENDING_REQUESTS = []
+
+def save_pending_request(name, email, password):
+    PENDING_REQUESTS.append({
+        'name': name,
+        'email': email,
+        'password': password,
+        'timestamp': datetime.now().isoformat()
+    })
+
+def get_pending_requests():
+    return PENDING_REQUESTS
+
+def remove_pending_request(email):
+    global PENDING_REQUESTS
+    PENDING_REQUESTS = [r for r in PENDING_REQUESTS if r['email'] != email]
+
+def add_approved_user(name, email, password):
+    # This would add to database in production
+    pass
 
 def get_query_type(query):
     q = query.strip().upper()
@@ -114,17 +140,25 @@ def signup():
     if not all([email, name, password]):
         return jsonify({'error': 'All fields required'}), 400
     
-    access_token = create_access_token(identity=email)
-    
-    return jsonify({
-        'message': 'Signup successful',
-        'token': access_token,
-        'user': {
-            'email': email,
-            'name': name,
-            'role': 'admin' if is_admin(email) else 'student'
-        }
-    }), 201
+    if is_admin(email):
+        # Admin can be created directly
+        access_token = create_access_token(identity=email)
+        return jsonify({
+            'message': 'Signup successful',
+            'token': access_token,
+            'user': {
+                'email': email,
+                'name': name,
+                'role': 'admin'
+            }
+        }), 201
+    else:
+        # Save pending request for admin approval
+        save_pending_request(name, email, password)
+        return jsonify({
+            'message': 'Signup request submitted. Waiting for admin approval.',
+            'pending': True
+        }), 201
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
@@ -156,6 +190,48 @@ def get_profile():
             'email': email,
             'name': email.split('@')[0],
             'role': 'admin' if is_admin(email) else 'student'
+        }
+    })
+
+# ============= Admin Routes =============
+
+@app.route('/api/admin/pending', methods=['GET'])
+@jwt_required()
+def get_pending():
+    user_email = get_jwt_identity()
+    if not is_admin(user_email):
+        return jsonify({'error': 'Admin access required'}), 403
+    return jsonify({'pending': get_pending_requests()})
+
+@app.route('/api/admin/approve', methods=['POST'])
+@jwt_required()
+def approve_user():
+    user_email = get_jwt_identity()
+    if not is_admin(user_email):
+        return jsonify({'error': 'Admin access required'}), 403
+    
+    data = request.get_json()
+    email = data.get('email')
+    action = data.get('action')  # 'approve' or 'reject'
+    
+    if action == 'reject':
+        remove_pending_request(email)
+        return jsonify({'message': 'Request rejected'})
+    
+    # Find pending request
+    pending = [r for r in get_pending_requests() if r['email'] == email]
+    if not pending:
+        return jsonify({'error': 'Request not found'}), 404
+    
+    pending_user = pending[0]
+    remove_pending_request(email)
+    
+    # Create the user (in production, add to database)
+    return jsonify({
+        'message': f'User {email} approved',
+        'user': {
+            'email': pending_user['email'],
+            'name': pending_user['name']
         }
     })
 
