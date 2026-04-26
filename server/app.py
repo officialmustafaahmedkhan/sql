@@ -60,23 +60,18 @@ def send_email(to_email, subject, html_content):
 # =====================================================
 # Database Configuration
 # =====================================================
-# Default to SQLite (deployment safe)
-# Set USE_LOCAL_SQLITE=false only for local development
+# FORCED SQLite - for Render deployment
 # =====================================================
+USE_LOCAL_SQLITE = True  # Always SQLite by default
 
-# Only use MySQL if explicitly configured with DB credentials
+# Check if MySQL is explicitly configured (optional)
 db_host = os.getenv('DB_HOST', '')
 db_user = os.getenv('DB_USER', '')
 
-USE_LOCAL_SQLITE = True
-if db_host and db_user:
-    # MySQL is configured
-    USE_LOCAL_SQLITE = os.getenv('USE_LOCAL_SQLITE', '').lower() == 'true'
-    
 print(f"[DB] USE_LOCAL_SQLITE: {USE_LOCAL_SQLITE}, DB_HOST: '{db_host}'")
 
 # SQLite path for practice queries
-SQL_DB_PATH = os.getenv('SQL_DB_PATH', './sqllab.db')
+SQL_DB_PATH = './sqllab.db'
 
 # MySQL Configuration
 DB_CONFIG = {
