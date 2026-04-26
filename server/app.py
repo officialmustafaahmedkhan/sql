@@ -291,11 +291,23 @@ def validate_query(sql, is_admin=False):
             if keyword in sql_upper:
                 return False, f"Operation '{keyword}' is not allowed"
     
-    allowed = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE TABLE', 'DROP TABLE', 'ALTER', 
-              'SHOW TABLES', 'DESCRIBE', 'DESC', 'USE', 'BEGIN', 'COMMIT', 'ROLLBACK',
-              'UNION', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'JOIN']
+    allowed = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE TABLE', 'DROP TABLE', 'CREATE DATABASE', 
+              'DROP DATABASE', 'ALTER', 'SHOW', 'DESCRIBE', 'DESC', 'USE', 'BEGIN', 'COMMIT', 
+              'ROLLBACK', 'UNION', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'JOIN']
     
-    if first_word not in allowed:
+    first_word_check = first_word
+    if first_word == 'SHOW' and 'DATABASES' in sql_upper:
+        first_word_check = 'SHOW DATABASES'
+    elif first_word == 'DESCRIBE':
+        first_word_check = 'DESCRIBE'
+    
+    is_allowed = False
+    for a in allowed:
+        if sql_upper.startswith(a) or first_word == a:
+            is_allowed = True
+            break
+    
+    if not is_allowed:
         return False, f"Statement '{first_word}' is not allowed"
     
     if sql_upper.startswith('SELECT') and 'LIMIT' not in sql_upper:
@@ -452,16 +464,13 @@ def verify_otp():
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
-    print("[LOGIN] Called")
+    import traceback
     try:
-        print("[LOGIN] Getting auth_db")
-        auth_db = get_auth_db()
-        print("[LOGIN] DB connected")
         data = request.get_json()
-        email = data.get('email')
-        password = data.get('password')
+        email = data.get('email', '')
+        password = data.get('password', '')
         
-        if not all([email, password]):
+        if not email or not password:
             return jsonify({'error': 'Email and password required'}), 400
         
         auth_db = get_auth_db()
@@ -491,15 +500,11 @@ def login():
         return jsonify({
             'message': 'Login successful',
             'token': access_token,
-            'user': {
-                'id': user_id,
-                'name': user_name,
-                'email': email,
-                'role': user_role
-            }
+            'user': {'id': user_id, 'name': user_name, 'email': email, 'role': user_role}
         })
     except Exception as e:
         print(f"[LOGIN ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/auth/profile', methods=['GET'])
@@ -558,6 +563,27 @@ def execute_query():
             continue
         
         start_time = datetime.now()
+        query_upper = query.upper().strip()
+        
+        if query_upper.startswith('USE '):
+            db_name = queryUpper = query.strip().split()[1].strip(';')
+            try:
+                if not USE_LOCAL_SQLITE:
+                    cursor.execute(f'USE {db_name}')
+                    db.commit()
+                result_data = {
+                    'query': query,
+                    'queryType': 'USE',
+                    'success': True,
+                    'results': [{'message': f'Switched to database: {db_name}'}],
+                    'rowsAffected': 0,
+                    'executionTime': int((datetime.now() - start_time).total_seconds() * 1000)
+                }
+                all_results.append(result_data)
+                continue
+            except Exception as e:
+                all_errors.append({'query': query, 'error': str(e)})
+                continue
         
         is_valid, result = validate_query(query)
         if not is_valid:
@@ -569,10 +595,13 @@ def execute_query():
         
         RESULT_STATEMENTS = ['SELECT', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN']
         
+        if query_upper.startswith('SHOW') and 'DATABASES' in query_upper:
+            query_type = 'SHOW DATABASES'
+        
         try:
             cursor.execute(query)
             
-            if query_type in RESULT_STATEMENTS:
+            if query_type in RESULT_STATEMENTS or query_type == 'SHOW DATABASES':
                 rows = cursor.fetchall()
                 if USE_LOCAL_SQLITE:
                     rows = [dict(row) for row in rows]
