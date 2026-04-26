@@ -62,28 +62,25 @@ db_pass = os.getenv('DB_PASSWORD', '')
 db_name = os.getenv('DB_NAME', '')
 db_port = int(os.getenv('DB_PORT', 3306))
 
-# FORCED to use SQLite by default
-# Only use MySQL if USE_LOCAL_SQLITE=false AND db_host is real external server
-force_sqlite = os.getenv('USE_LOCAL_SQLITE', 'true').lower() != 'false'
+# =====================================================
+# ALWAYS USE SQLITE FOR DEPLOYMENT
+# =====================================================
+USE_LOCAL_SQLITE = True  # ALWAYS True - NEVER change this
 
-if force_sqlite:
-    USE_LOCAL_SQLITE = True
-    print("[DB] FORCED SQLite (default)")
-elif db_host:
-    try:
-        import pymysql
-        test = pymysql.connect(host=db_host, port=db_port, user=db_user, 
-                          password=db_pass, connect_timeout=2, ssl={'ssl_disabled': True})
-        test.close()
-        USE_LOCAL_SQLITE = False
-        print("[DB] MySQL connected!")
-    except Exception as e:
-        print(f"[DB] MySQL failed: {e}")
-        USE_LOCAL_SQLITE = True
-else:
-    USE_LOCAL_SQLITE = True
+print(f"[DB] FORCE SQLite: USE_LOCAL_SQLITE = {USE_LOCAL_SQLITE}")
 
-print(f"[DB] DB_HOST: '{db_host}' -> SQLite: {USE_LOCAL_SQLITE}")
+# SQLite paths
+SQL_DB_PATH = './sqllab.db'
+AUTH_DB_PATH = './sqllab_auth.db'
+
+# MySQL config - NOT USED
+DB_CONFIG = {
+    'host': 'NOT_USED',
+    'port': 3306,
+    'user': 'NOT_USED',
+    'password': 'NOT_USED',
+    'database': 'NOT_USED',
+}
 
 # SQLite paths
 SQL_DB_PATH = './sqllab.db'
