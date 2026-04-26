@@ -60,70 +60,31 @@ def send_email(to_email, subject, html_content):
 # =====================================================
 # Database Configuration
 # =====================================================
-
-# Default to SQLite (deployment)
-USE_LOCAL_SQLITE = True
-
-# MySQL config (set in environment to use MySQL)
-MYSQL_HOST = os.getenv('DB_HOST', '')
-MYSQL_USER = os.getenv('DB_USER', '')
-MYSQL_PASS = os.getenv('DB_PASSWORD', '')
-MYSQL_DB = os.getenv('DB_NAME', '')
-MYSQL_PORT = int(os.getenv('DB_PORT', 3306))
-
-if MYSQL_HOST and MYSQL_USER:
-    USE_LOCAL_SQLITE = os.getenv('USE_LOCAL_SQLITE', '').lower() == 'true'
-    if not USE_LOCAL_SQLITE:
-        print("[DB] MySQL mode")
-    else:
-        print("[DB] SQLite mode")
-else:
-    print("[DB] SQLite mode (default)")
-
-# SQLite path
-SQL_DB_PATH = os.getenv('SQL_DB_PATH', './sqllab.db')
-
-# MySQL config
-DB_CONFIG = {
-    'host': MYSQL_HOST,
-    'port': MYSQL_PORT,
-    'user': MYSQL_USER,
-    'password': MYSQL_PASS,
-    'database': MYSQL_DB,
-    'charset': 'utf8mb4',
-    'cursorclass': pymysql.cursors.DictCursor,
-    'ssl': {'ssl_disabled': True}
-}
-
-# =====================================================
-# FORCE SQLite as default - for deployment
+# Default to SQLite (deployment safe)
 # Set USE_LOCAL_SQLITE=false only for local development
 # =====================================================
 
-# Default to SQLite
+# Only use MySQL if explicitly configured with DB credentials
+db_host = os.getenv('DB_HOST', '')
+db_user = os.getenv('DB_USER', '')
+
 USE_LOCAL_SQLITE = True
-
-# Only use MySQL if explicitly configured
-DB_HOST_CONFIG = os.getenv('DB_HOST', '')
-DB_USER_CONFIG = os.getenv('DB_USER', '')
-
-if DB_HOST_CONFIG and DB_USER_CONFIG:
+if db_host and db_user:
+    # MySQL is configured
     USE_LOCAL_SQLITE = os.getenv('USE_LOCAL_SQLITE', '').lower() == 'true'
-else:
-    USE_LOCAL_SQLITE = True
-
-print(f"[DB] USE_LOCAL_SQLITE: {USE_LOCAL_SQLITE}")
+    
+print(f"[DB] USE_LOCAL_SQLITE: {USE_LOCAL_SQLITE}, DB_HOST: '{db_host}'")
 
 # SQLite path for practice queries
 SQL_DB_PATH = os.getenv('SQL_DB_PATH', './sqllab.db')
 
 # MySQL Configuration
 DB_CONFIG = {
-    'host': MYSQL_HOST,
-    'port': MYSQL_PORT,
-    'user': MYSQL_USER,
-    'password': MYSQL_PASS,
-    'database': MYSQL_DB,
+    'host': db_host,
+    'port': int(os.getenv('DB_PORT', 3306)),
+    'user': db_user,
+    'password': os.getenv('DB_PASSWORD', ''),
+    'database': os.getenv('DB_NAME', ''),
     'charset': 'utf8mb4',
     'cursorclass': pymysql.cursors.DictCursor,
     'ssl': {'ssl_disabled': True}
