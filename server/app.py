@@ -590,12 +590,6 @@ def execute_query():
                 all_errors.append({'query': query, 'error': str(e)})
                 continue
         
-        if USE_LOCAL_SQLITE:
-            if query_upper == 'SHOW TABLES':
-                query = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-            elif query_upper == 'SHOW DATABASES':
-                query = "SELECT 'sqllab.db' as database_name"
-        
         is_valid, result = validate_query(query)
         if not is_valid:
             all_errors.append({'query': query, 'error': result})
@@ -603,6 +597,15 @@ def execute_query():
         
         query = result
         query_type = query.upper().split()[0]
+        
+        if USE_LOCAL_SQLITE:
+            query_norm = query_upper.replace(';', '').strip()
+            if query_norm == 'SHOW TABLES':
+                query = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+                query_type = 'SELECT'
+            elif query_norm == 'SHOW DATABASES':
+                query = "SELECT 'sqllab.db' as database_name"
+                query_type = 'SELECT'
         
         RESULT_STATEMENTS = ['SELECT', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN']
         
