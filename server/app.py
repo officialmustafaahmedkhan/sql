@@ -677,23 +677,6 @@ def get_stats():
     
     return jsonify({'stats': stats})
 
-# ==================== PROFILE ====================
-
-@app.route('/api/auth/profile', methods=['GET'])
-@jwt_required()
-def get_profile():
-    try:
-        current_user_id = get_jwt_identity()
-        auth_db = get_auth_db()
-        cursor = auth_db.cursor()
-        cursor.execute('SELECT id, name, email, role FROM users WHERE id = ?', (current_user_id,))
-        user = cursor.fetchone()
-        if user:
-            return jsonify({'id': user[0], 'name': user[1], 'email': user[2], 'role': user[3]})
-        return jsonify({'error': 'User not found'}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 401
-
 # ==================== TABLES ====================
 
 @app.route('/api/tables', methods=['GET'])
