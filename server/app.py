@@ -364,34 +364,50 @@ def validate_query(sql, is_admin=False):
             if keyword in sql_upper:
                 return False, f"Operation '{keyword}' is not allowed (admin only)"
     
-    # All standard SQL statements
-    allowed = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 
-              'CREATE TABLE', 'CREATE DATABASE', 'CREATE VIEW', 'CREATE INDEX',
-              'DROP TABLE', 'DROP DATABASE', 'DROP VIEW',
-              'ALTER', 'DESCRIBE', 'DESC', 'RENAME', 'TRUNCATE', 
-              'SHOW TABLES', 'SHOW COLUMNS', 'SHOW INDEX', 'SHOW DATABASES',
-              'USE',
+    # All standard SQL statements + advanced
+    allowed = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'REPLACE', 'REPLACE INTO',
+              'CREATE TABLE', 'CREATE DATABASE', 'CREATE VIEW', 'CREATE INDEX', 'CREATE TRIGGER', 'CREATE FUNCTION', 'CREATE PROCEDURE',
+              'DROP TABLE', 'DROP DATABASE', 'DROP VIEW', 'DROP INDEX', 'DROP TRIGGER', 'DROP FUNCTION', 'DROP PROCEDURE',
+              'ALTER', 'DESCRIBE', 'DESC', 'RENAME', 'TRUNCATE', 'USE',
+              'SHOW TABLES', 'SHOW COLUMNS', 'SHOW INDEX', 'SHOW DATABASES', 'SHOW CREATE',
               'BEGIN', 'COMMIT', 'ROLLBACK', 'SAVEPOINT', 'START TRANSACTION',
               'GRANT', 'REVOKE',
-              'CALL', 'EXPLAIN', 'SOURCE',
+              'CALL',
+              'EXPLAIN', 'EXPLAIN QUERY PLAN',
+              # Advanced querying
               'UNION', 'UNION ALL', 'EXCEPT', 'INTERSECT',
               'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'OFFSET',
-              'JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN', 'CROSS JOIN',
+              'JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'FULL JOIN', 'CROSS JOIN', 'NATURAL JOIN',
               'WHERE', 'AND', 'OR', 'NOT', 'IN', 'BETWEEN', 'LIKE', 'IS NULL', 'IS NOT NULL',
-              'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'AS',
+              # Aggregate functions
+              'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'GROUP_CONCAT',
+              # Case expressions
               'CASE', 'WHEN', 'THEN', 'ELSE', 'END',
-              'DISTINCT', 'ALL', 'ANY', 'EXISTS']
+              'DISTINCT', 'ALL', 'ANY', 'EXISTS',
+              # Window functions
+              'ROW_NUMBER', 'RANK', 'DENSE_RANK', 'NTILE', 'LEAD', 'LAG', 'FIRST_VALUE', 'LAST_VALUE',
+              'OVER', 'PARTITION BY', 'ROWS BETWEEN', 'RANGE BETWEEN',
+              # CTEs and subqueries
+              'WITH',
+              # Stored procedures/functions
+              'DECLARE', 'DELIMITER',
+              # Other
+              'AS', 'ON', 'NULL', 'NOT NULL', 'PRIMARY KEY', 'FOREIGN KEY', 'REFERENCES',
+              'DEFAULT', 'AUTO_INCREMENT', 'UNIQUE', 'CHECK', 'CONSTRAINT',
+              'IF', 'UNLESS']
     
     if first_word not in allowed and first_two not in allowed:
         return False, f"Statement '{first_word}' is not allowed"
     
-    # Add LIMIT to SELECT queries
-    if sql_upper.startswith('SELECT') and 'LIMIT' not in sql_upper:
+    # Add LIMIT to SELECT queries (but not for window functions)
+    if sql_upper.startswith('SELECT') and 'LIMIT' not in sql_upper and 'ROW_NUMBER()' not in sql_upper:
         sql = f"{sql.rstrip(';')} LIMIT {MAX_ROWS}"
     
-    # Auto-add IF NOT EXISTS for CREATE TABLE
-    if sql_upper.startswith('CREATE TABLE') and 'IF NOT EXISTS' not in sql_upper:
-        sql = sql.replace('CREATE TABLE', 'CREATE TABLE IF NOT EXISTS', 1)
+    # Auto-add IF NOT EXISTS for CREATE statements
+    create_stmts = ['CREATE TABLE', 'CREATE DATABASE', 'CREATE VIEW']
+    for stmt in create_stmts:
+        if sql_upper.startswith(stmt) and 'IF NOT EXISTS' not in sql_upper:
+            sql = sql.replace(stmt, f'{stmt} IF NOT EXISTS', 1)
     
     return True, sql
 
