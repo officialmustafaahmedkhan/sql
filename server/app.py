@@ -85,19 +85,29 @@ def try_mysql_connection():
     except:
         return False
 
-# Check MySQL availability
-FORCE_SQLITE = os.getenv('USE_LOCAL_SQLITE', '').lower() in ('true', '1', 'yes', '')
+# Check MySQL availability - only force MySQL if explicitly set
+force_mysql = os.getenv('USE_LOCAL_SQLITE', '').lower() == 'false'
+force_sqlite = os.getenv('USE_LOCAL_SQLITE', '').lower() in ('true', '1', 'yes')
 
-if FORCE_SQLITE:
+if force_sqlite:
+    # Explicitly set to use SQLite
     USE_LOCAL_SQLITE = True
     print("[DB] SQLite mode (forced)")
+elif force_mysql:
+    # Explicitly set to use MySQL
+    USE_LOCAL_SQLITE = False
+    print("[DB] MySQL mode (forced)")
 else:
-    # Try MySQL first
-    mysql_available = try_mysql_connection()
-    USE_LOCAL_SQLITE = not mysql_available
-    print(f"[DB] MySQL available: {mysql_available}")
-    if not mysql_available:
-        print("[DB] Falling back to SQLite")
+    # Auto-detect: Only on local machine with DB vars set
+    # On server (Render/Replit), no DB vars so will use SQLite
+    has_db_config = bool(mysql_host and mysql_user and mysql_pass)
+    if has_db_config:
+        mysql_available = try_mysql_connection()
+        USE_LOCAL_SQLITE = not mysql_available
+        print(f"[DB] MySQL available: {mysql_available}")
+    else:
+        USE_LOCAL_SQLITE = True
+        print("[DB] SQLite mode (no MySQL config)")
 
 # SQLite path for practice queries
 SQL_DB_PATH = os.getenv('SQL_DB_PATH', './sqllab.db')
