@@ -1009,8 +1009,17 @@ def health_check():
         cursor = db.cursor()
         cursor.execute('SELECT 1')
         cursor.close()
-        db_type = 'MySQL' if not USE_LOCAL_SQLITE else 'SQLite'
-        return jsonify({'status': 'ok', 'database': db_type})
+        # Debug info
+        debug_info = {
+            'status': 'ok',
+            'database': 'MySQL' if not USE_LOCAL_SQLITE else 'SQLite',
+            'debug': {
+                'USE_LOCAL_SQLITE': USE_LOCAL_SQLITE,
+                'DB_HOST': os.getenv('DB_HOST', 'NOT_SET'),
+                'DB_USER': os.getenv('DB_USER', 'NOT_SET')
+            }
+        }
+        return jsonify(debug_info)
     except Exception as e:
         return jsonify({'status': 'error', 'database': str(e)}), 500
 
