@@ -3,7 +3,7 @@ import { CheckCircle, XCircle, Clock, UserPlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 
-const API_URL = 'https://sql-n5k6.onrender.com/api';
+const API_URL = 'https://sql-lab-new.onrender.com/api';
 
 function PendingRequests() {
   const [pending, setPending] = useState([]);

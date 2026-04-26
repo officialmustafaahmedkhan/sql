@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_URL = 'https://sql-n5k6.onrender.com/api';
+const API_URL = 'https://sql-lab-new.onrender.com/api';
 
 const AuthContext = createContext(null);
 
