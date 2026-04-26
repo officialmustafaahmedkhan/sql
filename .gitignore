@@ -1,24 +1,18 @@
-# Ignore environment files
+# Environment files (keep secret)
 .env
-.env.*
-!.env.example
+.env.local
+.env.production
 
-# Ignore local databases
-*.db
-*.sqlite
-*.sqlite3
-
-# Ignore Python cache
+# Python
 __pycache__/
 *.pyc
-*.pyo
-.pytest_cache/
+*.db
+*.sqlite
 
-# Ignore node modules
+# Node
 node_modules/
+build/
 
-# Ignore IDE
-.idea/
+# IDE
 .vscode/
-*.swp
-*.swo
+.idea/

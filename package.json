@@ -1,15 +1,38 @@
 {
-  "name": "sql-lab-platform",
+  "name": "sql-lab-frontend",
   "version": "1.0.0",
-  "description": "Web-Based Multi-Tenant SQL Lab Platform for University Students",
-  "scripts": {
-    "install:all": "cd backend && npm install && cd ../frontend && npm install",
-    "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "cd frontend && npm start",
-    "build:frontend": "cd frontend && npm run build",
-    "start:backend": "cd backend && npm start"
+  "private": true,
+  "dependencies": {
+    "@monaco-editor/react": "^4.6.0",
+    "axios": "^1.6.2",
+    "firebase": "^10.7.0",
+    "lucide-react": "^0.294.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.21.0",
+    "react-scripts": "5.0.1"
   },
-  "keywords": ["sql", "lab", "education", "database", "nodejs", "react"],
-  "author": "IOBM",
-  "license": "MIT"
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
 }
