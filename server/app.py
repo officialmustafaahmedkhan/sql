@@ -317,7 +317,7 @@ def split_queries(sql):
 @app.route('/api/auth/signup', methods=['POST'])
 def signup():
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         name = data.get('name', '')
         email = data.get('email', '')
         password = data.get('password', '')
@@ -325,47 +325,34 @@ def signup():
         if not name or not email or not password:
             return jsonify({'error': 'All fields required'}), 400
         
-        if ALLOWED_DOMAIN and '@' in email and not email.lower().endswith(ALLOWED_DOMAIN):
-            return jsonify({'error': f'Only {ALLOWED_DOMAIN} emails allowed'}), 400
-        
-        # Get auth database
-        auth_db = get_auth_db()
-        auth_cursor = auth_db.cursor()
-        
-        # Check existing
-        auth_cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
-        if auth_cursor.fetchone():
-            auth_cursor.close()
-            return jsonify({'error': 'Email already registered'}), 409
-        
-        # Hash password
+        # Hash
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         
-        # Insert user
-        auth_cursor.execute(
-            'INSERT INTO users (name, email, password, is_verified) VALUES (?, ?, ?, 1)',
-            (name, email, hashed)
-        )
+        # DB
+        auth_db = get_auth_db()
+        cursor = auth_db.cursor()
         
-        # Generate OTP
+        # Check
+        cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
+        if cursor.fetchone():
+            cursor.close()
+            return jsonify({'error': 'Email registered'}), 409
+        
+        # Insert
+        cursor.execute('INSERT INTO users (name, email, password, is_verified) VALUES (?, ?, ?, 1)',
+            (name, email, hashed))
+        
+        # OTP
         otp = generate_otp()
-        
-        auth_cursor.execute(
-            'INSERT INTO otp_codes (email, otp, expires_at) VALUES (?, ?, ?)',
-            (email, otp, datetime.now() + timedelta(minutes=5))
-        )
+        cursor.execute('INSERT INTO otp_codes (email, otp, expires_at) VALUES (?, ?, ?)',
+            (email, otp, datetime.now()))
         
         auth_db.commit()
-        auth_cursor.close()
+        cursor.close()
         
-        return jsonify({
-            'message': 'Signup successful',
-            'email': email,
-            'otp': otp
-        }), 201
+        return jsonify({'message': 'OK', 'email': email, 'otp': otp}), 201
         
     except Exception as e:
-        print(f"[SIGNUP ERROR] {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/auth/verify-otp', methods=['POST'])
