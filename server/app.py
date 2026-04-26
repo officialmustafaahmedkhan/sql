@@ -58,50 +58,28 @@ def send_email(to_email, subject, html_content):
 
 # =====================================================
 # =====================================================
-# Database Configuration - HYBRID Setup
+# Database Configuration - HYBRID FIXED v2
 # =====================================================
 import os
 
-# Get environment variables
+print("[STARTUP] Database config loading...")
+
+# Get environment variables - empty means SQLite
 db_host = os.environ.get('DB_HOST', '')
 db_user = os.environ.get('DB_USER', '')
 db_pass = os.environ.get('DB_PASSWORD', '')
 db_name = os.environ.get('DB_NAME', '')
 
-print(f"[ENV] DB_HOST='{db_host}'")
-print(f"[ENV] DB_USER='{db_user}'")
+print(f"[STARTUP] DB_HOST='{db_host}', DB_USER='{db_user}'")
 
-# Default to SQLite
+# FORCE SQLite for deployment
 USE_LOCAL_SQLITE = True
-
-# Try MySQL only if credentials are provided
-if db_host and db_user:
-    try:
-        import pymysql
-        test_conn = pymysql.connect(
-            host=db_host,
-            port=int(os.environ.get('DB_PORT', 3306)),
-            user=db_user,
-            password=db_pass,
-            database=db_name,
-            connect_timeout=2,
-            ssl={'ssl_disabled': True}
-        )
-        test_conn.close()
-        USE_LOCAL_SQLITE = False
-        print("[DB] MySQL connected")
-    except Exception as e:
-        print(f"[DB] MySQL not available, using SQLite: {e}")
-        USE_LOCAL_SQLITE = True
-else:
-    print("[DB] SQLite (no MySQL config)")
-
-print(f"[DB] Mode: {'SQLite' if USE_LOCAL_SQLITE else 'MySQL'}")
+print(f"[STARTUP] USE_LOCAL_SQLITE set to: {USE_LOCAL_SQLITE}")
 
 # SQLite path for practice queries
 SQL_DB_PATH = './sqllab.db'
 
-# MySQL Configuration
+# MySQL Configuration (not used when USE_LOCAL_SQLITE=True)
 DB_CONFIG = {
     'host': db_host,
     'port': int(os.environ.get('DB_PORT', 3306)),
