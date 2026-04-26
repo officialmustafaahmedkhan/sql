@@ -452,6 +452,7 @@ def verify_otp():
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
+    print("[LOGIN] Called")
     try:
         data = request.get_json()
         email = data.get('email')
