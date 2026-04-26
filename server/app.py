@@ -294,9 +294,16 @@ def validate_query(sql, is_admin=False):
             if keyword in sql_upper:
                 return False, f"Operation '{keyword}' is not allowed"
     
-    allowed = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE TABLE', 'DROP TABLE', 'CREATE DATABASE', 
-              'DROP DATABASE', 'ALTER', 'SHOW', 'DESCRIBE', 'DESC', 'USE', 'BEGIN', 'COMMIT', 
-              'ROLLBACK', 'UNION', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'JOIN']
+    allowed_sqlite = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE TABLE', 'DROP TABLE', 
+                   'ALTER', 'SHOW', 'DESCRIBE', 'DESC', 'USE', 'BEGIN', 'COMMIT', 
+                   'ROLLBACK', 'UNION', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'JOIN']
+    
+    allowed_mysql = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE TABLE', 'DROP TABLE', 
+                     'CREATE DATABASE', 'DROP DATABASE', 'ALTER', 'SHOW', 'DESCRIBE', 'DESC', 
+                     'USE', 'BEGIN', 'COMMIT', 'ROLLBACK', 'UNION', 'ORDER BY', 
+                     'GROUP BY', 'HAVING', 'LIMIT', 'JOIN']
+    
+    allowed = allowed_mysql if not USE_LOCAL_SQLITE else allowed_sqlite
     
     is_allowed = first_two in allowed or first_word in allowed
     
