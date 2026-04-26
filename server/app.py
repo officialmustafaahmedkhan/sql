@@ -452,74 +452,82 @@ def verify_otp():
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-    
-    if not all([email, password]):
-        return jsonify({'error': 'Email and password required'}), 400
-    
-    auth_db = get_auth_db()
-    auth_cursor = auth_db.cursor()
-    
-    auth_cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
-    user = auth_cursor.fetchone()
-    auth_cursor.close()
-    
-    if not user:
-        return jsonify({'error': 'Invalid email or password'}), 401
-    
-    user_id = user[0]
-    user_name = user[1]
-    user_password = user[3]
-    user_role = user[4]
-    user_verified = user[5]
-    
-    if not bcrypt.checkpw(password.encode(), user_password.encode()):
-        return jsonify({'error': 'Invalid email or password'}), 401
-    
-    if not user_verified:
-        return jsonify({'error': 'Please verify email first'}), 403
-    
-    access_token = create_access_token(identity=str(user_id))
-    
-    return jsonify({
-        'message': 'Login successful',
-        'token': access_token,
-        'user': {
-            'id': user_id,
-            'name': user_name,
-            'email': email,
-            'role': user_role
-        }
-    })
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+        
+        if not all([email, password]):
+            return jsonify({'error': 'Email and password required'}), 400
+        
+        auth_db = get_auth_db()
+        auth_cursor = auth_db.cursor()
+        
+        auth_cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
+        user = auth_cursor.fetchone()
+        auth_cursor.close()
+        
+        if not user:
+            return jsonify({'error': 'Invalid email or password'}), 401
+        
+        user_id = user[0]
+        user_name = user[1]
+        user_password = user[3]
+        user_role = user[4]
+        user_verified = user[5]
+        
+        if not bcrypt.checkpw(password.encode(), user_password.encode()):
+            return jsonify({'error': 'Invalid email or password'}), 401
+        
+        if not user_verified:
+            return jsonify({'error': 'Please verify email first'}), 403
+        
+        access_token = create_access_token(identity=str(user_id))
+        
+        return jsonify({
+            'message': 'Login successful',
+            'token': access_token,
+            'user': {
+                'id': user_id,
+                'name': user_name,
+                'email': email,
+                'role': user_role
+            }
+        })
+    except Exception as e:
+        print(f"[LOGIN ERROR] {type(e).__name__}: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/auth/profile', methods=['GET'])
 @jwt_required()
 def get_profile():
-    user_id = int(get_jwt_identity())
-    
-    auth_db = get_auth_db()
-    auth_cursor = auth_db.cursor()
-    auth_cursor.execute(
-        'SELECT id, name, email, role, is_verified FROM users WHERE id = ?',
-        (user_id,)
-    )
-    user = auth_cursor.fetchone()
-    auth_cursor.close()
-    
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-    
-    return jsonify({
-        'user': {
-            'id': user[0],
-            'name': user[1],
-            'email': user[2],
-            'role': user[3],
-            'is_verified': user[4]
-        }
-    })
+    try:
+        user_id = int(get_jwt_identity())
+        
+        auth_db = get_auth_db()
+        auth_cursor = auth_db.cursor()
+        auth_cursor.execute(
+            'SELECT id, name, email, role, is_verified FROM users WHERE id = ?',
+            (user_id,)
+        )
+        user = auth_cursor.fetchone()
+        auth_cursor.close()
+        
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        return jsonify({
+            'user': {
+                'id': user[0],
+                'name': user[1],
+                'email': user[2],
+                'role': user[3],
+                'is_verified': user[4]
+            }
+        })
+    except Exception as e:
+        print(f"[PROFILE ERROR] {type(e).__name__}: {e}")
+        return jsonify({'error': str(e)}), 500
 
 # ==================== QUERY ROUTES ====================
 
