@@ -58,20 +58,59 @@ def send_email(to_email, subject, html_content):
 
 # =====================================================
 # =====================================================
-# Database Configuration
+# Database Configuration - HYBRID Setup
 # =====================================================
-# FORCED SQLite - for Render deployment
+# Render: No DB vars → SQLite
+# Laptop + Workbench: DB vars set → MySQL (if running)
+# Laptop no Workbench: DB vars set → SQLite (auto fallback)
 # =====================================================
-USE_LOCAL_SQLITE = True  # Always SQLite by default
 
-# Check if MySQL is explicitly configured (optional)
 db_host = os.getenv('DB_HOST', '')
 db_user = os.getenv('DB_USER', '')
+db_pass = os.getenv('DB_PASSWORD', '')
+db_name = os.getenv('DB_NAME', '')
 
-print(f"[DB] USE_LOCAL_SQLITE: {USE_LOCAL_SQLITE}, DB_HOST: '{db_host}'")
+# Default to SQLite
+USE_LOCAL_SQLITE = True
+
+# Try MySQL only if credentials are provided
+if db_host and db_user:
+    try:
+        import pymysql
+        test_conn = pymysql.connect(
+            host=db_host,
+            port=int(os.getenv('DB_PORT', 3306)),
+            user=db_user,
+            password=db_pass,
+            database=db_name,
+            connect_timeout=2,
+            ssl={'ssl_disabled': True}
+        )
+        test_conn.close()
+        USE_LOCAL_SQLITE = False
+        print("[DB] MySQL connected")
+    except Exception as e:
+        print(f"[DB] MySQL not available, using SQLite: {e}")
+        USE_LOCAL_SQLITE = True
+else:
+    print("[DB] SQLite (no MySQL config)")
+
+print(f"[DB] Mode: {'SQLite' if USE_LOCAL_SQLITE else 'MySQL'}")
 
 # SQLite path for practice queries
 SQL_DB_PATH = './sqllab.db'
+
+# MySQL Configuration
+DB_CONFIG = {
+    'host': db_host,
+    'port': int(os.getenv('DB_PORT', 3306)),
+    'user': db_user,
+    'password': db_pass,
+    'database': db_name,
+    'charset': 'utf8mb4',
+    'cursorclass': pymysql.cursors.DictCursor,
+    'ssl': {'ssl_disabled': True}
+}
 
 # MySQL Configuration
 DB_CONFIG = {
