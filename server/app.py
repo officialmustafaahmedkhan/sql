@@ -130,15 +130,15 @@ MAX_ROWS = int(os.getenv('MAX_ROWS', 100))
 ALLOWED_DOMAIN = os.getenv('ALLOWED_DOMAIN', '')
 
 # =====================================================
-# Dual Database Setup
+# Dual Database Setup - HYBRID
 # AUTH_DB = For User Authentication (SQLite)
 # SQL_DB = For SQL Practice Queries (MySQL or SQLite)
 # =====================================================
 
-USE_LOCAL_SQLITE = os.getenv('USE_LOCAL_SQLITE', 'true').lower() == 'true'
+# NOTE: USE_LOCAL_SQLITE is already set above in Database Configuration section
 
 # SQLite for Auth
-AUTH_DB_PATH = os.getenv('AUTH_DB_PATH', './sqllab_auth.db')
+AUTH_DB_PATH = './sqllab_auth.db'
 
 # SQLite path for practice queries
 SQL_DB_PATH = os.getenv('SQL_DB_PATH', './sqllab.db')
