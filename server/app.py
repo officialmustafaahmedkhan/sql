@@ -25,7 +25,7 @@ app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET', 'your-secret-key-change-this')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=7)
 
-CORS(app)
+CORS(app, origins=['https://maksqlcompiler.netlify.app', 'http://localhost:3000', 'http://localhost:5173'], supports_credentials=True)
 jwt = JWTManager(app)
 
 # Email Configuration
@@ -676,6 +676,67 @@ def get_stats():
     cursor.close()
     
     return jsonify({'stats': stats})
+
+# ==================== PROFILE ====================
+
+@app.route('/api/auth/profile', methods=['GET'])
+@jwt_required()
+def get_profile():
+    try:
+        current_user_id = get_jwt_identity()
+        auth_db = get_auth_db()
+        cursor = auth_db.cursor()
+        cursor.execute('SELECT id, name, email, role FROM users WHERE id = ?', (current_user_id,))
+        user = cursor.fetchone()
+        if user:
+            return jsonify({'id': user[0], 'name': user[1], 'email': user[2], 'role': user[3]})
+        return jsonify({'error': 'User not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 401
+
+# ==================== TABLES ====================
+
+@app.route('/api/tables', methods=['GET'])
+@jwt_required()
+def get_tables():
+    try:
+        db = get_db()
+        cursor = db.cursor()
+        if USE_LOCAL_SQLITE:
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        else:
+            cursor.execute("SHOW TABLES")
+        tables = [row[0] for row in cursor.fetchall()]
+        return jsonify({'tables': tables})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ==================== SCHEMA ====================
+
+@app.route('/api/schema/<table_name>', methods=['GET'])
+@jwt_required()
+def get_schema(table_name):
+    try:
+        db = get_db()
+        cursor = db.cursor()
+        if USE_LOCAL_SQLITE:
+            cursor.execute(f"PRAGMA table_info({table_name})")
+            columns = [{'name': row[1], 'type': row[2]} for row in cursor.fetchall()]
+        else:
+            cursor.execute(f"DESCRIBE {table_name}")
+            columns = [{'name': row[0], 'type': row[1]} for row in cursor.fetchall()]
+        return jsonify({'table': table_name, 'columns': columns})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ==================== PRACTICES ====================
+
+@app.route('/api/practices', methods=['GET'])
+def get_practices():
+    return jsonify({'practices': [
+        {'id': 1, 'title': 'Basic SELECT', 'query': 'SELECT * FROM students LIMIT 5'},
+        {'id': 2, 'title': 'Find all courses', 'query': 'SELECT * FROM courses'},
+    ]})
 
 # ==================== HEALTH CHECK ====================
 
