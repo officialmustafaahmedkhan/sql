@@ -55,31 +55,21 @@ def send_email(to_email, subject, html_content):
 # =====================================================
 print("[START] Initializing database config...")
 
-# Get ALL env vars
-import os
-envKeys = list(os.environ.keys())
-dbVars = [k for k in envKeys if 'DB' in k or 'SQLITE' in k]
-print(f"[DEBUG] DB related vars: {dbVars}")
-
+# Get env vars
 db_host = os.getenv('DB_HOST', '')
 db_user = os.getenv('DB_USER', '')
 db_pass = os.getenv('DB_PASSWORD', '')
 db_name = os.getenv('DB_NAME', '')
 db_port = int(os.getenv('DB_PORT', 3306))
 
-print(f"[DEBUG] db_host='{db_host}'")
+# FORCED to use SQLite by default
+# Only use MySQL if USE_LOCAL_SQLITE=false AND db_host is real external server
+force_sqlite = os.getenv('USE_LOCAL_SQLITE', 'true').lower() != 'false'
 
-# Hybrid logic:
-# - If DB_HOST is empty → SQLite (Render)
-# - If DB_HOST is set → try MySQL, if fails use SQLite (Laptop)
-# - USE_LOCAL_SQLITE=true forces SQLite even with DB vars set
-
-use_force_sqlite = os.getenv('USE_LOCAL_SQLITE', '').lower() == 'true'
-
-if use_force_sqlite:
+if force_sqlite:
     USE_LOCAL_SQLITE = True
+    print("[DB] FORCED SQLite (default)")
 elif db_host:
-    # Try MySQL, but catch error if not running
     try:
         import pymysql
         test = pymysql.connect(host=db_host, port=db_port, user=db_user, 
@@ -88,7 +78,7 @@ elif db_host:
         USE_LOCAL_SQLITE = False
         print("[DB] MySQL connected!")
     except Exception as e:
-        print(f"[DB] MySQL failed: {e}, using SQLite")
+        print(f"[DB] MySQL failed: {e}")
         USE_LOCAL_SQLITE = True
 else:
     USE_LOCAL_SQLITE = True
