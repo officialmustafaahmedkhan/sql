@@ -63,13 +63,13 @@ def send_email(to_email, subject, html_content):
 import os
 
 # Get environment variables
-env_db_host = os.environ.get('DB_HOST', '')
-env_db_user = os.environ.get('DB_USER', '')
-env_db_pass = os.environ.get('DB_PASSWORD', '')
-env_db_name = os.environ.get('DB_NAME', '')
+db_host = os.environ.get('DB_HOST', '')
+db_user = os.environ.get('DB_USER', '')
+db_pass = os.environ.get('DB_PASSWORD', '')
+db_name = os.environ.get('DB_NAME', '')
 
-print(f"[ENV] DB_HOST='{env_db_host}'")
-print(f"[ENV] DB_USER='{env_db_user}'")
+print(f"[ENV] DB_HOST='{db_host}'")
+print(f"[ENV] DB_USER='{db_user}'")
 
 # Default to SQLite
 USE_LOCAL_SQLITE = True
@@ -80,7 +80,7 @@ if db_host and db_user:
         import pymysql
         test_conn = pymysql.connect(
             host=db_host,
-            port=int(os.getenv('DB_PORT', 3306)),
+            port=int(os.environ.get('DB_PORT', 3306)),
             user=db_user,
             password=db_pass,
             database=db_name,
@@ -104,7 +104,7 @@ SQL_DB_PATH = './sqllab.db'
 # MySQL Configuration
 DB_CONFIG = {
     'host': db_host,
-    'port': int(os.getenv('DB_PORT', 3306)),
+    'port': int(os.environ.get('DB_PORT', 3306)),
     'user': db_user,
     'password': db_pass,
     'database': db_name,
