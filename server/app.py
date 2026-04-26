@@ -380,8 +380,13 @@ def signup():
             return jsonify({'error': 'Email registered'}), 409
         
         # Insert
-        cursor.execute('INSERT INTO users (name, email, password, is_verified) VALUES (?, ?, ?, 1)',
-            (name, email, hashed))
+        # Insert - first user is admin
+        cursor.execute('SELECT COUNT(*) FROM users')
+        count = cursor.fetchone()[0]
+        role = 'admin' if count == 1 else 'student'
+        
+        cursor.execute('INSERT INTO users (name, email, password, is_verified, role) VALUES (?, ?, ?, ?, ?)',
+            (name, email, hashed, 1, role))
         
         # OTP
         otp = generate_otp()
