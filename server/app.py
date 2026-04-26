@@ -454,6 +454,9 @@ def verify_otp():
 def login():
     print("[LOGIN] Called")
     try:
+        print("[LOGIN] Getting auth_db")
+        auth_db = get_auth_db()
+        print("[LOGIN] DB connected")
         data = request.get_json()
         email = data.get('email')
         password = data.get('password')
