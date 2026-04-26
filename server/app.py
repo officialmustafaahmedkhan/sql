@@ -317,6 +317,35 @@ def split_queries(sql):
 @app.route('/api/auth/signup', methods=['POST'])
 def signup():
     try:
+        # Ensure tables exist
+        auth_db = get_auth_db()
+        cursor = auth_db.cursor()
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                role TEXT DEFAULT 'student',
+                is_verified INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS otp_codes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL,
+                otp TEXT NOT NULL,
+                expires_at DATETIME NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        auth_db.commit()
+        
+        # Now get data
         data = request.get_json() or {}
         name = data.get('name', '')
         email = data.get('email', '')
@@ -327,10 +356,6 @@ def signup():
         
         # Hash
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-        
-        # DB
-        auth_db = get_auth_db()
-        cursor = auth_db.cursor()
         
         # Check
         cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
