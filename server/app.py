@@ -59,15 +59,17 @@ def send_email(to_email, subject, html_content):
 # =====================================================
 # Database Configuration
 # =====================================================
-# Auto-detect: Try MySQL first, fallback to SQLite
-mysql_host = os.getenv('DB_HOST', '127.0.0.1')
+# Auto-detect: Check if real MySQL config is provided
+mysql_host = os.getenv('DB_HOST', '')
 mysql_port = int(os.getenv('DB_PORT', 3306))
-mysql_user = os.getenv('DB_USER', 'root')
+mysql_user = os.getenv('DB_USER', '')
 mysql_pass = os.getenv('DB_PASSWORD', '')
-mysql_db = os.getenv('DB_NAME', 'sqllab')
+mysql_db = os.getenv('DB_NAME', '')
 
 def try_mysql_connection():
     """Test if MySQL is available"""
+    if not mysql_host or not mysql_user:
+        return False
     try:
         import pymysql
         test_config = {
