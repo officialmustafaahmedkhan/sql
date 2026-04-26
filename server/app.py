@@ -57,66 +57,73 @@ def send_email(to_email, subject, html_content):
         return False
 
 # =====================================================
+# =====================================================
 # Database Configuration
 # =====================================================
-# Auto-detect: Check if real MySQL config is provided
-mysql_host = os.getenv('DB_HOST', '')
-mysql_port = int(os.getenv('DB_PORT', 3306))
-mysql_user = os.getenv('DB_USER', '')
-mysql_pass = os.getenv('DB_PASSWORD', '')
-mysql_db = os.getenv('DB_NAME', '')
 
-def try_mysql_connection():
-    """Test if MySQL is available"""
-    if not mysql_host or not mysql_user:
-        return False
-    try:
-        import pymysql
-        test_config = {
-            'host': mysql_host,
-            'port': mysql_port,
-            'user': mysql_user,
-            'password': mysql_pass,
-            'database': mysql_db,
-            'connect_timeout': 2,
-            'ssl': {'ssl_disabled': True}
-        }
-        conn = pymysql.connect(**test_config)
-        conn.close()
-        return True
-    except:
-        return False
+# Default to SQLite (deployment)
+USE_LOCAL_SQLITE = True
 
-# Check MySQL availability - only force MySQL if explicitly set
-force_mysql = os.getenv('USE_LOCAL_SQLITE', '').lower() == 'false'
-force_sqlite = os.getenv('USE_LOCAL_SQLITE', '').lower() in ('true', '1', 'yes')
+# MySQL config (set in environment to use MySQL)
+MYSQL_HOST = os.getenv('DB_HOST', '')
+MYSQL_USER = os.getenv('DB_USER', '')
+MYSQL_PASS = os.getenv('DB_PASSWORD', '')
+MYSQL_DB = os.getenv('DB_NAME', '')
+MYSQL_PORT = int(os.getenv('DB_PORT', 3306))
 
-# Default to SQLite if no DB config provided
-if not mysql_host or not mysql_user:
-    USE_LOCAL_SQLITE = True
-    print(f"[DB] SQLite mode (no config)")
-elif force_mysql:
-    USE_LOCAL_SQLITE = False
-    print("[DB] MySQL mode (forced)")
-elif force_sqlite:
-    USE_LOCAL_SQLITE = True
-    print("[DB] SQLite mode (forced)")
+if MYSQL_HOST and MYSQL_USER:
+    USE_LOCAL_SQLITE = os.getenv('USE_LOCAL_SQLITE', '').lower() == 'true'
+    if not USE_LOCAL_SQLITE:
+        print("[DB] MySQL mode")
+    else:
+        print("[DB] SQLite mode")
 else:
-    # Try MySQL connection
-    mysql_available = try_mysql_connection()
-    USE_LOCAL_SQLITE = not mysql_available
-    print(f"[DB] MySQL available: {mysql_available}")
+    print("[DB] SQLite mode (default)")
+
+# SQLite path
+SQL_DB_PATH = os.getenv('SQL_DB_PATH', './sqllab.db')
+
+# MySQL config
+DB_CONFIG = {
+    'host': MYSQL_HOST,
+    'port': MYSQL_PORT,
+    'user': MYSQL_USER,
+    'password': MYSQL_PASS,
+    'database': MYSQL_DB,
+    'charset': 'utf8mb4',
+    'cursorclass': pymysql.cursors.DictCursor,
+    'ssl': {'ssl_disabled': True}
+}
+
+# =====================================================
+# FORCE SQLite as default - for deployment
+# Set USE_LOCAL_SQLITE=false only for local development
+# =====================================================
+
+# Default to SQLite
+USE_LOCAL_SQLITE = True
+
+# Only use MySQL if explicitly configured
+DB_HOST_CONFIG = os.getenv('DB_HOST', '')
+DB_USER_CONFIG = os.getenv('DB_USER', '')
+
+if DB_HOST_CONFIG and DB_USER_CONFIG:
+    USE_LOCAL_SQLITE = os.getenv('USE_LOCAL_SQLITE', '').lower() == 'true'
+else:
+    USE_LOCAL_SQLITE = True
+
+print(f"[DB] USE_LOCAL_SQLITE: {USE_LOCAL_SQLITE}")
 
 # SQLite path for practice queries
 SQL_DB_PATH = os.getenv('SQL_DB_PATH', './sqllab.db')
 
 # MySQL Configuration
 DB_CONFIG = {
-    'host': mysql_host,
-    'port': mysql_port,
-    'user': mysql_user,
-    'password': mysql_pass,
-    'database': mysql_db,
+    'host': MYSQL_HOST,
+    'port': MYSQL_PORT,
+    'user': MYSQL_USER,
+    'password': MYSQL_PASS,
+    'database': MYSQL_DB,
     'charset': 'utf8mb4',
     'cursorclass': pymysql.cursors.DictCursor,
     'ssl': {'ssl_disabled': True}
