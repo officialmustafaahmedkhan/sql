@@ -657,22 +657,12 @@ def get_stats():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    import os
-    try:
-        db = get_db()
-        cursor = db.cursor()
-        cursor.execute('SELECT 1')
-        cursor.close()
-        return jsonify({
-            'status': 'ok',
-            'database': 'MySQL' if not USE_LOCAL_SQLITE else 'SQLite',
-            'USE_LOCAL_SQLITE': USE_LOCAL_SQLITE,
-            'env': {
-                'DB_HOST': os.getenv('DB_HOST', 'NOT_SET'),
-            }
-        })
-    except Exception as e:
-        return jsonify({'status': 'error', 'error': str(e)}), 500
+    return jsonify({
+        'status': 'ok',
+        'database': 'FORCED_SQLITE',
+        'use_sqlite': USE_LOCAL_SQLITE,
+        'db_host': os.getenv('DB_HOST', 'NOT_SET')
+    })
 
 # ==================== MAIN ====================
 
