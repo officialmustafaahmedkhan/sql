@@ -128,19 +128,19 @@ def get_db():
             g.sql_db.row_factory = sqlite3.Row
             # Auto-create tables
             cursor = g.sql_db.cursor()
-            cursor.execute('CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY, first_name TEXT, last_name TEXT, email TEXT UNIQUE, department TEXT, enrollment_year INTEGER, gpa REAL)')
-            cursor.execute('CREATE TABLE IF NOT EXISTS courses (id INTEGER PRIMARY KEY, course_code TEXT UNIQUE, course_name TEXT, credits INTEGER, department TEXT, instructor TEXT)')
-            cursor.execute('CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY, student_id INTEGER, course_id INTEGER, grade TEXT, semester TEXT)')
-            cursor.execute('CREATE TABLE IF NOT EXISTS query_logs (id INTEGER PRIMARY KEY, user_id INTEGER, query_text TEXT, query_type TEXT, execution_time_ms INTEGER, rows_affected INTEGER, status TEXT, error_message TEXT, timestamp TEXT)')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY, first_name TEXT, last_name TEXT, email TEXT UNIQUE, department TEXT, enrollment_year INTEGER, gpa REAL)''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS courses (id INTEGER PRIMARY KEY, course_code TEXT UNIQUE, course_name TEXT, credits INTEGER, department TEXT, instructor TEXT)''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY, student_id INTEGER, course_id INTEGER, grade TEXT, semester TEXT)''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS query_logs (id INTEGER PRIMARY KEY, user_id INTEGER, query_text TEXT, query_type TEXT, execution_time_ms INTEGER, rows_affected INTEGER, status TEXT, error_message TEXT, timestamp TEXT)''')
             # Sample data
             cursor.execute('SELECT COUNT(*) FROM students')
             if cursor.fetchone()[0] == 0:
-                cursor.execute(\"INSERT INTO students VALUES (1, 'Ahmed', 'Khan', 'ahmed@iobm.edu.pk', 'Computer Science', 2023, 3.75)\")
-                cursor.execute(\"INSERT INTO students VALUES (2, 'Fatima', 'Ali', 'fatima@iobm.edu.pk', 'Business Admin', 2022, 3.90)\")
-                cursor.execute(\"INSERT INTO students VALUES (3, 'Muhammad', 'Hassan', 'hassan@iobm.edu.pk', 'Computer Science', 2023, 3.50)\")
-                cursor.execute(\"INSERT INTO courses VALUES (1, 'CS101', 'Introduction to Programming', 4, 'Computer Science', 'Dr. Ahmad')\")
-                cursor.execute(\"INSERT INTO courses VALUES (2, 'CS201', 'Data Structures', 4, 'Computer Science', 'Dr. Fatima')\")
-                cursor.execute(\"INSERT INTO courses VALUES (3, 'CS301', 'Database Systems', 3, 'Computer Science', 'Dr. Hassan')\")
+                cursor.execute("INSERT INTO students VALUES (1, 'Ahmed', 'Khan', 'ahmed@iobm.edu.pk', 'Computer Science', 2023, 3.75)")
+                cursor.execute("INSERT INTO students VALUES (2, 'Fatima', 'Ali', 'fatima@iobm.edu.pk', 'Business Admin', 2022, 3.90)")
+                cursor.execute("INSERT INTO students VALUES (3, 'Muhammad', 'Hassan', 'hassan@iobm.edu.pk', 'Computer Science', 2023, 3.50)")
+                cursor.execute("INSERT INTO courses VALUES (1, 'CS101', 'Introduction to Programming', 4, 'Computer Science', 'Dr. Ahmad')")
+                cursor.execute("INSERT INTO courses VALUES (2, 'CS201', 'Data Structures', 4, 'Computer Science', 'Dr. Fatima')")
+                cursor.execute("INSERT INTO courses VALUES (3, 'CS301', 'Database Systems', 3, 'Computer Science', 'Dr. Hassan')")
             g.sql_db.commit()
         return g.sql_db
     else:
