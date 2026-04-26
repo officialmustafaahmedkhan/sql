@@ -288,6 +288,8 @@ def validate_query(sql, is_admin=False):
     
     first_two = f"{first_word} {second_word}"
     
+    print(f"[VALIDATE] SQL: {sql[:50]}, first_word: {first_word}, first_two: {first_two}, USE_LOCAL_SQLITE: {USE_LOCAL_SQLITE}")
+    
     blocked_keywords = ['INFORMATION_SCHEMA', 'PERFORMANCE_SCHEMA']
     if not is_admin:
         for keyword in blocked_keywords:
@@ -306,6 +308,8 @@ def validate_query(sql, is_admin=False):
     allowed = allowed_mysql if not USE_LOCAL_SQLITE else allowed_sqlite
     
     is_allowed = first_two in allowed or first_word in allowed
+    
+    print(f"[VALIDATE] allowed: {allowed[:5]}..., is_allowed: {is_allowed}")
     
     if not is_allowed:
         return False, f"Statement '{first_word}' is not allowed"
