@@ -60,15 +60,16 @@ def send_email(to_email, subject, html_content):
 # =====================================================
 # Database Configuration - HYBRID Setup
 # =====================================================
-# Render: No DB vars → SQLite
-# Laptop + Workbench: DB vars set → MySQL (if running)
-# Laptop no Workbench: DB vars set → SQLite (auto fallback)
-# =====================================================
+import os
 
-db_host = os.getenv('DB_HOST', '')
-db_user = os.getenv('DB_USER', '')
-db_pass = os.getenv('DB_PASSWORD', '')
-db_name = os.getenv('DB_NAME', '')
+# Get environment variables
+env_db_host = os.environ.get('DB_HOST', '')
+env_db_user = os.environ.get('DB_USER', '')
+env_db_pass = os.environ.get('DB_PASSWORD', '')
+env_db_name = os.environ.get('DB_NAME', '')
+
+print(f"[ENV] DB_HOST='{env_db_host}'")
+print(f"[ENV] DB_USER='{env_db_user}'")
 
 # Default to SQLite
 USE_LOCAL_SQLITE = True
