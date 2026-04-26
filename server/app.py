@@ -55,12 +55,19 @@ def send_email(to_email, subject, html_content):
 # =====================================================
 print("[START] Initializing database config...")
 
-# Get env vars
+# Get ALL env vars
+import os
+envKeys = list(os.environ.keys())
+dbVars = [k for k in envKeys if 'DB' in k or 'SQLITE' in k]
+print(f"[DEBUG] DB related vars: {dbVars}")
+
 db_host = os.getenv('DB_HOST', '')
 db_user = os.getenv('DB_USER', '')
 db_pass = os.getenv('DB_PASSWORD', '')
 db_name = os.getenv('DB_NAME', '')
 db_port = int(os.getenv('DB_PORT', 3306))
+
+print(f"[DEBUG] db_host='{db_host}'")
 
 # Hybrid logic:
 # - If DB_HOST is empty → SQLite (Render)
