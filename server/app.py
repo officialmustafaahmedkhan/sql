@@ -62,12 +62,13 @@ db_pass = os.getenv('DB_PASSWORD', '')
 db_name = os.getenv('DB_NAME', '')
 db_port = int(os.getenv('DB_PORT', 3306))
 
-print(f"[DB] DB_HOST: '{db_host}'")
-print(f"[DB] DB_USER: '{db_user}'")
+# Skip MySQL if localhost or empty (for deployment)
+if db_host and db_host not in ['', 'localhost', '127.0.0.1']:
+    USE_LOCAL_SQLITE = os.getenv('USE_LOCAL_SQLITE', '').lower() != 'true'
+else:
+    USE_LOCAL_SQLITE = True
 
-# FORCE SQLite = True always for deployment
-USE_LOCAL_SQLITE = True
-print(f"[DB] USE_LOCAL_SQLITE: {USE_LOCAL_SQLITE}")
+print(f"[DB] DB_HOST: '{db_host}' -> USE_LOCAL_SQLITE: {USE_LOCAL_SQLITE}")
 
 # SQLite paths
 SQL_DB_PATH = './sqllab.db'
