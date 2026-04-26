@@ -62,13 +62,31 @@ db_pass = os.getenv('DB_PASSWORD', '')
 db_name = os.getenv('DB_NAME', '')
 db_port = int(os.getenv('DB_PORT', 3306))
 
-# Skip MySQL if localhost or empty (for deployment)
-if db_host and db_host not in ['', 'localhost', '127.0.0.1']:
-    USE_LOCAL_SQLITE = os.getenv('USE_LOCAL_SQLITE', '').lower() != 'true'
+# Hybrid logic:
+# - If DB_HOST is empty → SQLite (Render)
+# - If DB_HOST is set → try MySQL, if fails use SQLite (Laptop)
+# - USE_LOCAL_SQLITE=true forces SQLite even with DB vars set
+
+use_force_sqlite = os.getenv('USE_LOCAL_SQLITE', '').lower() == 'true'
+
+if use_force_sqlite:
+    USE_LOCAL_SQLITE = True
+elif db_host:
+    # Try MySQL, but catch error if not running
+    try:
+        import pymysql
+        test = pymysql.connect(host=db_host, port=db_port, user=db_user, 
+                          password=db_pass, connect_timeout=2, ssl={'ssl_disabled': True})
+        test.close()
+        USE_LOCAL_SQLITE = False
+        print("[DB] MySQL connected!")
+    except Exception as e:
+        print(f"[DB] MySQL failed: {e}, using SQLite")
+        USE_LOCAL_SQLITE = True
 else:
     USE_LOCAL_SQLITE = True
 
-print(f"[DB] DB_HOST: '{db_host}' -> USE_LOCAL_SQLITE: {USE_LOCAL_SQLITE}")
+print(f"[DB] DB_HOST: '{db_host}' -> SQLite: {USE_LOCAL_SQLITE}")
 
 # SQLite paths
 SQL_DB_PATH = './sqllab.db'
