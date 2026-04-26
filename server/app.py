@@ -65,7 +65,7 @@ db_port = int(os.getenv('DB_PORT', 3306))
 # =====================================================
 # ALWAYS USE SQLITE FOR DEPLOYMENT
 # =====================================================
-USE_LOCAL_SQLITE = True  # ALWAYS True - NEVER change this
+USE_LOCAL_SQLITE = os.getenv('USE_LOCAL_SQLITE', 'true').lower() == 'true'
 
 print(f"[DB] FORCE SQLite: USE_LOCAL_SQLITE = {USE_LOCAL_SQLITE}")
 
