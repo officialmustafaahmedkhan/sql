@@ -284,6 +284,9 @@ def validate_query(sql, is_admin=False):
     sql_upper = sql.upper().strip()
     words = sql_upper.split()
     first_word = words[0] if words else ''
+    second_word = words[1] if len(words) > 1 else ''
+    
+    first_two = f"{first_word} {second_word}"
     
     blocked_keywords = ['INFORMATION_SCHEMA', 'PERFORMANCE_SCHEMA']
     if not is_admin:
@@ -295,23 +298,14 @@ def validate_query(sql, is_admin=False):
               'DROP DATABASE', 'ALTER', 'SHOW', 'DESCRIBE', 'DESC', 'USE', 'BEGIN', 'COMMIT', 
               'ROLLBACK', 'UNION', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'JOIN']
     
-    first_word_check = first_word
-    if first_word == 'SHOW' and 'DATABASES' in sql_upper:
-        first_word_check = 'SHOW DATABASES'
-    elif first_word == 'DESCRIBE':
-        first_word_check = 'DESCRIBE'
-    
-    is_allowed = False
-    for a in allowed:
-        if sql_upper.startswith(a) or first_word == a:
-            is_allowed = True
-            break
+    is_allowed = first_two in allowed or first_word in allowed
     
     if not is_allowed:
         return False, f"Statement '{first_word}' is not allowed"
     
     if sql_upper.startswith('SELECT') and 'LIMIT' not in sql_upper:
-        sql = f"{sql.rstrip(';')} LIMIT {MAX_ROWS}"
+        import os
+        sql = f"{sql.rstrip(';')} LIMIT {os.getenv('MAX_ROWS', '100')}"
     
     return True, sql
 
