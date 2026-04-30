@@ -153,8 +153,8 @@ def get_db():
             cursor.execute('''CREATE TABLE IF NOT EXISTS enrollments (id INT AUTO_INCREMENT PRIMARY KEY, student_id INT, course_id INT, grade VARCHAR(5), semester VARCHAR(20))''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS query_logs (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, query_text TEXT, query_type VARCHAR(50), execution_time_ms INT, rows_affected INT DEFAULT 0, status VARCHAR(20), error_message TEXT, timestamp DATETIME)''')
             
-            cursor.execute('SELECT COUNT(*) FROM students')
-            if cursor.fetchone()[0] == 0:
+            cursor.execute('SELECT COUNT(*) as cnt FROM students')
+            if cursor.fetchone()['cnt'] == 0:
                 cursor.execute("INSERT INTO students VALUES (1, 'Ahmed', 'Khan', 'ahmed@iobm.edu.pk', 'CS', 2023, 3.75)")
                 cursor.execute("INSERT INTO students VALUES (2, 'Fatima', 'Ali', 'fatima@iobm.edu.pk', 'Business', 2022, 3.90)")
                 cursor.execute("INSERT INTO students VALUES (3, 'Muhammad', 'Hassan', 'hassan@iobm.edu.pk', 'CS', 2023, 3.50)")
