@@ -562,12 +562,10 @@ def get_profile():
 @app.route('/api/query/execute', methods=['POST'])
 @jwt_required()
 def execute_query():
-    print("[DEBUG] execute_query called")
     import traceback
     try:
         user_id = int(get_jwt_identity())
         data = request.get_json(silent=True)
-        print(f"[DEBUG] user_id: {user_id}, data: {data}")
         if data is None or not isinstance(data, dict):
             return jsonify({'error': 'Invalid JSON'}), 400
         sql = data.get('query', '').strip()
@@ -793,10 +791,238 @@ def get_schema(table_name):
 
 @app.route('/api/practices', methods=['GET'])
 def get_practices():
-    return jsonify({'practices': [
-        {'id': 1, 'title': 'Basic SELECT', 'query': 'SELECT * FROM students LIMIT 5'},
-        {'id': 2, 'title': 'Find all courses', 'query': 'SELECT * FROM courses'},
-    ]})
+    db = get_db()
+    cursor = db.cursor()
+    
+    if USE_LOCAL_SQLITE:
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='practices'")
+    else:
+        cursor.execute("SHOW TABLES LIKE 'practices'")
+    
+    if not cursor.fetchone():
+        cursor.execute('''CREATE TABLE practices (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(100), description TEXT, query TEXT, difficulty VARCHAR(20), category VARCHAR(50))''')
+        cursor.execute("INSERT INTO practices (title, description, query, difficulty, category) VALUES ('Basic SELECT', 'Fetch all columns from students table', 'SELECT * FROM students LIMIT 10', 'Easy', 'SELECT')")
+        cursor.execute("INSERT INTO practices (title, description, query, difficulty, category) VALUES ('Filter with WHERE', 'Find students with GPA above 3.5', 'SELECT * FROM students WHERE gpa > 3.5', 'Easy', 'WHERE')")
+        cursor.execute("INSERT INTO practices (title, description, query, difficulty, category) VALUES ('Order Results', 'List courses by credits descending', 'SELECT * FROM courses ORDER BY credits DESC', 'Easy', 'ORDER BY')")
+        cursor.execute("INSERT INTO practices (title, description, query, difficulty, category) VALUES ('Count Records', 'Count total students', 'SELECT COUNT(*) as total FROM students', 'Medium', 'Aggregate')")
+        cursor.execute("INSERT INTO practices (title, description, query, difficulty, category) VALUES ('Group By Department', 'Average GPA per department', 'SELECT department, AVG(gpa) as avg_gpa FROM students GROUP BY department', 'Medium', 'GROUP BY')")
+        db.commit()
+    
+    if USE_LOCAL_SQLITE:
+        cursor.execute('SELECT * FROM practices ORDER BY id')
+        rows = cursor.fetchall()
+        practices = [dict(row) for row in rows]
+    else:
+        cursor.execute('SELECT * FROM practices ORDER BY id')
+        practices = cursor.fetchall()
+    
+    cursor.close()
+    return jsonify({'practices': practices})
+
+# ==================== ADMIN ROUTES ====================
+
+def is_admin(user_id):
+    auth_db = get_auth_db()
+    auth_cursor = auth_db.cursor()
+    auth_cursor.execute('SELECT role FROM users WHERE id = ?', (user_id,))
+    user = auth_cursor.fetchone()
+    auth_cursor.close()
+    return user and user[0] == 'admin'
+
+@app.route('/api/admin/stats', methods=['GET'])
+@jwt_required()
+def admin_stats():
+    try:
+        user_id = int(get_jwt_identity())
+        if not is_admin(user_id):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        auth_db = get_auth_db()
+        auth_cursor = auth_db.cursor()
+        auth_cursor.execute('SELECT COUNT(*) as total_users FROM users')
+        total_users = auth_cursor.fetchone()
+        total_users = total_users[0] if USE_LOCAL_SQLITE else total_users['total_users']
+        auth_cursor.close()
+        
+        db = get_db()
+        cursor = db.cursor()
+        
+        if USE_LOCAL_SQLITE:
+            cursor.execute('SELECT COUNT(*) as total, SUM(CASE WHEN status = "success" THEN 1 ELSE 0 END) as success, SUM(CASE WHEN status = "error" THEN 1 ELSE 0 END) as failed, AVG(execution_time_ms) as avg_time FROM query_logs')
+            stats = dict(cursor.fetchone())
+        else:
+            cursor.execute('SELECT COUNT(*) as total_queries, SUM(CASE WHEN status = "success" THEN 1 ELSE 0 END) as successful, SUM(CASE WHEN status = "error" THEN 1 ELSE 0 END) as failed, AVG(execution_time_ms) as avg_time FROM query_logs')
+            stats = cursor.fetchone()
+        
+        cursor.close()
+        
+        return jsonify({
+            'totalUsers': total_users,
+            'totalQueries': stats.get('total', 0) or stats.get('total_queries', 0),
+            'successfulQueries': stats.get('success', 0) or stats.get('successful', 0),
+            'unsuccessfulQueries': stats.get('failed', 0),
+            'avgTime': f"{int(stats.get('avg_time', 0) or 0)}ms"
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/pending', methods=['GET'])
+@jwt_required()
+def get_pending_requests():
+    try:
+        user_id = int(get_jwt_identity())
+        if not is_admin(user_id):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        auth_db = get_auth_db()
+        auth_cursor = auth_db.cursor()
+        
+        auth_cursor.execute('CREATE TABLE IF NOT EXISTS pending_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT UNIQUE, password TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)')
+        auth_db.commit()
+        
+        if USE_LOCAL_SQLITE:
+            auth_cursor.execute('SELECT * FROM pending_requests ORDER BY created_at DESC')
+            rows = auth_cursor.fetchall()
+            requests = [dict(row) for row in rows]
+        else:
+            auth_cursor.execute('SELECT * FROM pending_requests ORDER BY created_at DESC')
+            requests = auth_cursor.fetchall()
+        
+        auth_cursor.close()
+        return jsonify({'pending': requests})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/approve', methods=['POST'])
+@jwt_required()
+def approve_user():
+    try:
+        user_id = int(get_jwt_identity())
+        if not is_admin(user_id):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        data = request.get_json()
+        email = data.get('email')
+        action = data.get('action')
+        
+        if not email or action not in ['approve', 'reject']:
+            return jsonify({'error': 'Email and action required'}), 400
+        
+        auth_db = get_auth_db()
+        auth_cursor = auth_db.cursor()
+        
+        auth_cursor.execute('SELECT * FROM pending_requests WHERE email = ?', (email,))
+        pending = auth_cursor.fetchone()
+        
+        if not pending:
+            auth_cursor.close()
+            return jsonify({'error': 'Request not found'}), 404
+        
+        if action == 'approve':
+            if USE_LOCAL_SQLITE:
+                name = pending[1]
+                password = pending[3]
+            else:
+                name = pending[1]
+                password = pending[3]
+            
+            auth_cursor.execute('SELECT COUNT(*) as cnt FROM users')
+            count = auth_cursor.fetchone()
+            count = count[0] if USE_LOCAL_SQLITE else count['cnt']
+            role = 'admin' if count == 0 else 'student'
+            
+            auth_cursor.execute('INSERT INTO users (name, email, password, role, is_verified) VALUES (?, ?, ?, ?, 1)', (name, email, password, role))
+            auth_cursor.execute('DELETE FROM pending_requests WHERE email = ?', (email,))
+        else:
+            auth_cursor.execute('DELETE FROM pending_requests WHERE email = ?', (email,))
+        
+        auth_db.commit()
+        auth_cursor.close()
+        
+        return jsonify({'message': f'User {action}d successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/history', methods=['GET'])
+@jwt_required()
+def admin_history():
+    try:
+        user_id = int(get_jwt_identity())
+        if not is_admin(user_id):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        limit = request.args.get('limit', 50, type=int)
+        db = get_db()
+        cursor = db.cursor()
+        
+        if USE_LOCAL_SQLITE:
+            cursor.execute('''
+                SELECT ql.*, u.name as user_name, u.email as user_email 
+                FROM query_logs ql 
+                LEFT JOIN users u ON ql.user_id = u.id 
+                ORDER BY ql.timestamp DESC LIMIT ?
+            ''', (limit,))
+            history = [dict(row) for row in cursor.fetchall()]
+        else:
+            cursor.execute('''
+                SELECT ql.*, u.name as user_name, u.email as user_email 
+                FROM query_logs ql 
+                LEFT JOIN auth_db.users u ON ql.user_id = u.id 
+                ORDER BY ql.timestamp DESC LIMIT %s
+            ''', (limit,))
+            history = cursor.fetchall()
+        
+        cursor.close()
+        return jsonify({'history': history})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/make-admin', methods=['POST'])
+@jwt_required()
+def make_admin():
+    try:
+        user_id = int(get_jwt_identity())
+        if not is_admin(user_id):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        data = request.get_json()
+        target_email = data.get('email')
+        
+        if not target_email:
+            return jsonify({'error': 'Email required'}), 400
+        
+        auth_db = get_auth_db()
+        auth_cursor = auth_db.cursor()
+        auth_cursor.execute('UPDATE users SET role = "admin" WHERE email = ?', (target_email,))
+        auth_db.commit()
+        auth_cursor.close()
+        
+        return jsonify({'message': f'{target_email} is now an admin'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/users', methods=['GET'])
+@jwt_required()
+def get_all_users():
+    try:
+        user_id = int(get_jwt_identity())
+        if not is_admin(user_id):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        auth_db = get_auth_db()
+        auth_cursor = auth_db.cursor()
+        
+        if USE_LOCAL_SQLITE:
+            auth_cursor.execute('SELECT id, name, email, role, is_verified, created_at FROM users ORDER BY created_at DESC')
+            users = [dict(row) for row in auth_cursor.fetchall()]
+        else:
+            auth_cursor.execute('SELECT id, name, email, role, is_verified, created_at FROM users ORDER BY created_at DESC')
+            users = auth_cursor.fetchall()
+        
+        auth_cursor.close()
+        return jsonify({'users': users})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # ==================== HEALTH CHECK ====================
 

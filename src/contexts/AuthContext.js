@@ -66,10 +66,30 @@ export function AuthProvider({ children }) {
   };
 
   const getAllUsers = async () => {
-    return [];
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/admin/users`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data.users || [];
+    } catch (error) {
+      console.error('Failed to get users:', error);
+      return [];
+    }
   };
 
-  const makeAdmin = async (uid) => {};
+  const makeAdmin = async (email) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/admin/make-admin`, { email }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('Failed to make admin:', error);
+      return { success: false, error: error.message };
+    }
+  };
 
   return (
     <AuthContext.Provider value={{ user, loading, login, signup, logout, saveQueryHistory, getQueryHistory, getAllUsers, makeAdmin }}>
