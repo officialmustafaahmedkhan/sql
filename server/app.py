@@ -94,8 +94,7 @@ DB_CONFIG = {
     'password': db_pass,
     'database': db_name,
     'charset': 'utf8mb4',
-    'cursorclass': pymysql.cursors.DictCursor,
-    'ssl': {'ssl_disabled': True}
+    'cursorclass': pymysql.cursors.DictCursor
 }
 
 print("[DB] Database config initialized!")
@@ -778,10 +777,27 @@ def get_practices():
 def health_check():
     return jsonify({
         'status': 'ok',
-        'database': 'FORCED_SQLITE',
+        'database': 'MySQL' if not USE_LOCAL_SQLITE else 'SQLite',
         'use_sqlite': USE_LOCAL_SQLITE,
         'db_host': os.getenv('DB_HOST', 'NOT_SET')
     })
+
+@app.route('/api/db-status', methods=['GET'])
+def db_status():
+    if USE_LOCAL_SQLITE:
+        return jsonify({'status': 'connected', 'type': 'SQLite'})
+    
+    try:
+        conn = pymysql.connect(
+            host=DB_CONFIG['host'],
+            port=DB_CONFIG['port'],
+            user=DB_CONFIG['user'],
+            password=DB_CONFIG['password']
+        )
+        conn.close()
+        return jsonify({'status': 'connected', 'type': 'MySQL', 'host': DB_CONFIG['host']})
+    except Exception as e:
+        return jsonify({'status': 'disconnected', 'type': 'MySQL', 'error': str(e)})
 
 # ==================== MAIN ====================
 
