@@ -13,33 +13,10 @@ function SqlEditor() {
   const [loading, setLoading] = useState(false);
   const [executionInfo, setExecutionInfo] = useState(null);
   const [tables, setTables] = useState([]);
-  const [dbStatus, setDbStatus] = useState('checking'); // checking, connected, disconnected
+  const [dbStatus, setDbStatus] = useState('checking');
   const [showSchema, setShowSchema] = useState(false);
   const [schema, setSchema] = useState(null);
   const [practices, setPractices] = useState([]);
-  const [showPractices, setShowPractices] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-  const { saveQueryHistory, user } = useAuth();
-
-  useEffect(() => {
-    setDarkMode(document.documentElement.classList.contains('dark'));
-    checkDbStatus();
-  }, []);
-
-  const checkDbStatus = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/db-status`);
-      if (res.data.status === 'connected') {
-        setDbStatus('connected');
-        fetchTables();
-        fetchPractices();
-      } else {
-        setDbStatus('disconnected');
-      }
-    } catch (err) {
-      setDbStatus('disconnected');
-    }
-  };
 
   const fetchTables = async () => {
     try {
@@ -61,6 +38,26 @@ function SqlEditor() {
       console.error('Practices fetch error:', err);
     }
   };
+
+  const checkDbStatus = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/db-status`);
+      if (res.data.status === 'connected') {
+        setDbStatus('connected');
+        fetchTables();
+        fetchPractices();
+      } else {
+        setDbStatus('disconnected');
+      }
+    } catch (err) {
+      setDbStatus('disconnected');
+    }
+  };
+
+  useEffect(() => {
+    setDarkMode(document.documentElement.classList.contains('dark'));
+    checkDbStatus();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchSchema = async (tableName) => {
     try {
