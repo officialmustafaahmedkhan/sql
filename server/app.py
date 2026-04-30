@@ -840,8 +840,8 @@ def admin_stats():
         auth_db = get_auth_db()
         auth_cursor = auth_db.cursor()
         auth_cursor.execute('SELECT COUNT(*) as total_users FROM users')
-        total_users = auth_cursor.fetchone()
-        total_users = total_users[0] if USE_LOCAL_SQLITE else total_users['total_users']
+        row = auth_cursor.fetchone()
+        total_users = row[0] if USE_LOCAL_SQLITE else row['total_users']
         auth_cursor.close()
         
         db = get_db()
@@ -850,9 +850,17 @@ def admin_stats():
         if USE_LOCAL_SQLITE:
             cursor.execute('SELECT COUNT(*) as total, SUM(CASE WHEN status = "success" THEN 1 ELSE 0 END) as success, SUM(CASE WHEN status = "error" THEN 1 ELSE 0 END) as failed, AVG(execution_time_ms) as avg_time FROM query_logs')
             stats = dict(cursor.fetchone())
+            total_queries = stats.get('total', 0)
+            successful = stats.get('success', 0)
+            failed = stats.get('failed', 0)
+            avg_time = stats.get('avg_time', 0)
         else:
             cursor.execute('SELECT COUNT(*) as total_queries, SUM(CASE WHEN status = "success" THEN 1 ELSE 0 END) as successful, SUM(CASE WHEN status = "error" THEN 1 ELSE 0 END) as failed, AVG(execution_time_ms) as avg_time FROM query_logs')
             stats = cursor.fetchone()
+            total_queries = stats['total_queries'] or 0
+            successful = stats['successful'] or 0
+            failed = stats['failed'] or 0
+            avg_time = stats['avg_time'] or 0
         
         cursor.close()
         
