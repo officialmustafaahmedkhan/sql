@@ -816,12 +816,7 @@ def db_status():
         return jsonify({'status': 'connected', 'type': 'SQLite'})
     
     try:
-        conn = pymysql.connect(
-            host=DB_CONFIG['host'],
-            port=DB_CONFIG['port'],
-            user=DB_CONFIG['user'],
-            password=DB_CONFIG['password']
-        )
+        conn = pymysql.connect(**DB_CONFIG)
         conn.close()
         return jsonify({'status': 'connected', 'type': 'MySQL', 'host': DB_CONFIG['host']})
     except Exception as e:
