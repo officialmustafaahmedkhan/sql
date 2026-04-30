@@ -13,10 +13,13 @@ function SqlEditor() {
   const [loading, setLoading] = useState(false);
   const [executionInfo, setExecutionInfo] = useState(null);
   const [tables, setTables] = useState([]);
-  const [dbStatus, setDbStatus] = useState('checking');
   const [showSchema, setShowSchema] = useState(false);
   const [schema, setSchema] = useState(null);
   const [practices, setPractices] = useState([]);
+  const [showPractices, setShowPractices] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  const [dbStatus, setDbStatus] = useState('checking');
+  const { saveQueryHistory, user } = useAuth();
 
   const fetchTables = async () => {
     try {
