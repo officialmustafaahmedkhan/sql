@@ -562,127 +562,143 @@ def get_profile():
 @app.route('/api/query/execute', methods=['POST'])
 @jwt_required()
 def execute_query():
-    user_id = int(get_jwt_identity())
-    data = request.get_json()
-    sql = data.get('query', '').strip()
-    
-    if not sql:
-        return jsonify({'error': 'Query required'}), 400
+    try:
+        user_id = int(get_jwt_identity())
+        data = request.get_json()
+        if data is None:
+            return jsonify({'error': 'Invalid JSON'}), 400
+        sql = data.get('query', '').strip()
+        
+        if not sql:
+            return jsonify({'error': 'Query required'}), 400
+        
+        queries = split_queries(sql)
+        all_results = []
+        all_errors = []
+        total_time = 0
+        
+        db = get_db()
+        cursor = db.cursor()
+        
+        for query in queries:
+            if not query.strip() or query.strip().startswith('--'):
+                continue
+            
+            start_time = datetime.now()
+            query_upper = query.upper().strip()
+            
+            if query_upper.startswith('USE '):
+                db_name = queryUpper = query.strip().split()[1].strip(';')
+                try:
+                    if not USE_LOCAL_SQLITE:
+                        cursor.execute(f'USE {db_name}')
+                        db.commit()
+                    result_data = {
+                        'query': query,
+                        'queryType': 'USE',
+                        'success': True,
+                        'results': [{'message': f'Switched to database: {db_name}'}],
+                        'rowsAffected': 0,
+                        'executionTime': int((datetime.now() - start_time).total_seconds() * 1000)
+                    }
+                    all_results.append(result_data)
+                    continue
+                except Exception as e:
+                    all_errors.append({'query': query, 'error': str(e)})
+                    continue
+            
+            is_valid, result = validate_query(query)
+            if not is_valid:
+                all_errors.append({'query': query, 'error': result})
+                continue
+            
+            query = result
+            query_type = query.upper().split()[0]
+            
+            if USE_LOCAL_SQLITE:
+                query_norm = query_upper.replace(';', '').strip()
+                if query_norm == 'SHOW TABLES':
+                    query = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+                    query_type = 'SELECT'
+                elif query_norm == 'SHOW DATABASES':
+                    query = "SELECT 'sqllab.db' as database_name"
+                    query_type = 'SELECT'
+            
+            RESULT_STATEMENTS = ['SELECT', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN']
+            
+            try:
+                cursor.execute(query)
+                
+                if query_type in RESULT_STATEMENTS:
+                    rows = cursor.fetchall()
+                    if USE_LOCAL_SQLITE:
+                        rows = [dict(row) for row in rows]
+                    result_data = {
+                        'query': query,
+                        'queryType': query_type,
+                        'success': True,
+                        'results': rows,
+                        'rowsAffected': len(rows) if rows else 0,
+                        'executionTime': int((datetime.now() - start_time).total_seconds() * 1000)
+                    }
+                else:
+                    db.commit()
+                    result_data = {
+                        'query': query,
+                        'queryType': query_type,
+                        'success': True,
+                        'results': None,
+                        'rowsAffected': cursor.rowcount,
+                        'executionTime': int((datetime.now() - start_time).total_seconds() * 1000)
+                    }
+                
+                total_time += result_data['executionTime']
+                all_results.append(result_data)
+                
+                now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                if USE_LOCAL_SQLITE:
+                    cursor.execute('''
+                        INSERT INTO query_logs (user_id, query_text, query_type, execution_time_ms, rows_affected, status, timestamp)
+                        VALUES (?, ?, ?, ?, ?, 'success', ?)
+                    ''', (user_id, query, query_type, result_data['executionTime'], result_data['rowsAffected'], now))
+                else:
+                    cursor.execute('''
+                        INSERT INTO query_logs (user_id, query_text, query_type, execution_time_ms, rows_affected, status, timestamp)
+                        VALUES (%s, %s, %s, %s, %s, 'success', %s)
+                    ''', (user_id, query, query_type, result_data['executionTime'], result_data['rowsAffected'], now))
+                
+            except Exception as e:
+                error_msg = str(e)
+                exec_time = int((datetime.now() - start_time).total_seconds() * 1000)
+                total_time += exec_time
+                all_errors.append({'query': query, 'error': error_msg})
+        
+        db.commit()
+        cursor.close()
+        
+        return jsonify({
+            'success': len(all_errors) == 0,
+            'queryCount': len(all_results),
+            'executionTime': f'{total_time}ms',
+            'results': all_results,
+            'errors': all_errors if all_errors else None
+        })
+    except Exception as e:
+        import traceback
+        print(f"[QUERY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
     
     queries = split_queries(sql)
     all_results = []
     all_errors = []
     total_time = 0
     
-    db = get_db()
-    cursor = db.cursor()
-    
-    for query in queries:
-        if not query.strip() or query.strip().startswith('--'):
-            continue
-        
-        start_time = datetime.now()
-        query_upper = query.upper().strip()
-        
-        if query_upper.startswith('USE '):
-            db_name = queryUpper = query.strip().split()[1].strip(';')
-            try:
-                if not USE_LOCAL_SQLITE:
-                    cursor.execute(f'USE {db_name}')
-                    db.commit()
-                result_data = {
-                    'query': query,
-                    'queryType': 'USE',
-                    'success': True,
-                    'results': [{'message': f'Switched to database: {db_name}'}],
-                    'rowsAffected': 0,
-                    'executionTime': int((datetime.now() - start_time).total_seconds() * 1000)
-                }
-                all_results.append(result_data)
-                continue
-            except Exception as e:
-                all_errors.append({'query': query, 'error': str(e)})
-                continue
-        
-        is_valid, result = validate_query(query)
-        if not is_valid:
-            all_errors.append({'query': query, 'error': result})
-            continue
-        
-        query = result
-        query_type = query.upper().split()[0]
-        
-        if USE_LOCAL_SQLITE:
-            query_norm = query_upper.replace(';', '').strip()
-            if query_norm == 'SHOW TABLES':
-                query = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-                query_type = 'SELECT'
-            elif query_norm == 'SHOW DATABASES':
-                query = "SELECT 'sqllab.db' as database_name"
-                query_type = 'SELECT'
-        
-        RESULT_STATEMENTS = ['SELECT', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN']
-        
-        if query_upper.startswith('SHOW') and 'DATABASES' in query_upper:
-            query_type = 'SHOW DATABASES'
-        
-        try:
-            cursor.execute(query)
-            
-            if query_type in RESULT_STATEMENTS or query_type == 'SHOW DATABASES':
-                rows = cursor.fetchall()
-                if USE_LOCAL_SQLITE:
-                    rows = [dict(row) for row in rows]
-                result_data = {
-                    'query': query,
-                    'queryType': query_type,
-                    'success': True,
-                    'results': rows,
-                    'rowsAffected': len(rows) if rows else 0,
-                    'executionTime': int((datetime.now() - start_time).total_seconds() * 1000)
-                }
-            else:
-                db.commit()
-                result_data = {
-                    'query': query,
-                    'queryType': query_type,
-                    'success': True,
-                    'results': None,
-                    'rowsAffected': cursor.rowcount,
-                    'executionTime': int((datetime.now() - start_time).total_seconds() * 1000)
-                }
-            
-            total_time += result_data['executionTime']
-            all_results.append(result_data)
-            
-            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            if USE_LOCAL_SQLITE:
-                cursor.execute('''
-                    INSERT INTO query_logs (user_id, query_text, query_type, execution_time_ms, rows_affected, status, timestamp)
-                    VALUES (?, ?, ?, ?, ?, 'success', ?)
-                ''', (user_id, query, query_type, result_data['executionTime'], result_data['rowsAffected'], now))
-            else:
-                cursor.execute('''
-                    INSERT INTO query_logs (user_id, query_text, query_type, execution_time_ms, rows_affected, status, timestamp)
-                    VALUES (%s, %s, %s, %s, %s, 'success', %s)
-                ''', (user_id, query, query_type, result_data['executionTime'], result_data['rowsAffected'], now))
-            
-        except Exception as e:
-            error_msg = str(e)
-            exec_time = int((datetime.now() - start_time).total_seconds() * 1000)
-            total_time += exec_time
-            all_errors.append({'query': query, 'error': error_msg})
-    
-    db.commit()
-    cursor.close()
-    
-    return jsonify({
-        'success': len(all_errors) == 0,
-        'queryCount': len(all_results),
-        'executionTime': f'{total_time}ms',
-        'results': all_results,
-        'errors': all_errors if all_errors else None
-    })
+    except Exception as e:
+        import traceback
+        print(f"[QUERY ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/history', methods=['GET'])
 @jwt_required()
