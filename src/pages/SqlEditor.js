@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
-import { Play, Download, AlertCircle, CheckCircle, Clock, BookOpen } from 'lucide-react';
+import { Play, Download, AlertCircle, CheckCircle, Clock, BookOpen, Database } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -13,6 +13,7 @@ function SqlEditor() {
   const [loading, setLoading] = useState(false);
   const [executionInfo, setExecutionInfo] = useState(null);
   const [tables, setTables] = useState([]);
+  const [dbStatus, setDbStatus] = useState('checking'); // checking, connected, disconnected
   const [showSchema, setShowSchema] = useState(false);
   const [schema, setSchema] = useState(null);
   const [practices, setPractices] = useState([]);
@@ -22,9 +23,23 @@ function SqlEditor() {
 
   useEffect(() => {
     setDarkMode(document.documentElement.classList.contains('dark'));
-    fetchTables();
-    fetchPractices();
+    checkDbStatus();
   }, []);
+
+  const checkDbStatus = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/db-status`);
+      if (res.data.status === 'connected') {
+        setDbStatus('connected');
+        fetchTables();
+        fetchPractices();
+      } else {
+        setDbStatus('disconnected');
+      }
+    } catch (err) {
+      setDbStatus('disconnected');
+    }
+  };
 
   const fetchTables = async () => {
     try {
@@ -118,6 +133,40 @@ function SqlEditor() {
     link.download = `query_results_${Date.now()}.csv`;
     link.click();
   };
+
+  if (dbStatus === 'checking') {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh', background: 'var(--bg-secondary)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <Database size={48} style={{ color: 'var(--primary)', animation: 'pulse 2s infinite' }} />
+          <p style={{ marginTop: '16px', fontSize: '18px' }}>Checking MySQL Server...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (dbStatus === 'disconnected') {
+    return (
+      <div className="mysql-modal-overlay">
+        <div className="mysql-modal">
+          <Database size={64} style={{ color: '#e74c3c' }} />
+          <h2>MySQL Server Not Detected</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+            Please install and start MySQL Server on your system to use the SQL Lab.
+            Ensure MySQL is running on port <strong>3306</strong>.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <a href="https://dev.mysql.com/downloads/installer/" target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+              <Download size={16} /> Download MySQL Server
+            </a>
+            <button className="btn btn-secondary" onClick={() => { setDbStatus('checking'); setTimeout(checkDbStatus, 1000); }}>
+              Retry Connection
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
