@@ -25,7 +25,7 @@ app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET', 'your-secret-key-change-this')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=7)
 
-CORS(app, origins=['https://maksqlcompiler.netlify.app', 'http://localhost:3000', 'http://localhost:5173'], supports_credentials=True)
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 jwt = JWTManager(app)
 
 # Email Configuration
