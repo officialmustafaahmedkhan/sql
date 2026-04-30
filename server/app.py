@@ -146,6 +146,24 @@ def get_db():
     else:
         if 'db' not in g:
             g.db = pymysql.connect(**DB_CONFIG)
+            
+            cursor = g.db.cursor()
+            cursor.execute('''CREATE TABLE IF NOT EXISTS students (id INT AUTO_INCREMENT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), email VARCHAR(100) UNIQUE, department VARCHAR(50), enrollment_year INT, gpa FLOAT)''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS courses (id INT AUTO_INCREMENT PRIMARY KEY, course_code VARCHAR(20) UNIQUE, course_name VARCHAR(100), credits INT, department VARCHAR(50), instructor VARCHAR(50))''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS enrollments (id INT AUTO_INCREMENT PRIMARY KEY, student_id INT, course_id INT, grade VARCHAR(5), semester VARCHAR(20))''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS query_logs (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, query_text TEXT, query_type VARCHAR(50), execution_time_ms INT, rows_affected INT DEFAULT 0, status VARCHAR(20), error_message TEXT, timestamp DATETIME)''')
+            
+            cursor.execute('SELECT COUNT(*) FROM students')
+            if cursor.fetchone()[0] == 0:
+                cursor.execute("INSERT INTO students VALUES (1, 'Ahmed', 'Khan', 'ahmed@iobm.edu.pk', 'CS', 2023, 3.75)")
+                cursor.execute("INSERT INTO students VALUES (2, 'Fatima', 'Ali', 'fatima@iobm.edu.pk', 'Business', 2022, 3.90)")
+                cursor.execute("INSERT INTO students VALUES (3, 'Muhammad', 'Hassan', 'hassan@iobm.edu.pk', 'CS', 2023, 3.50)")
+                cursor.execute("INSERT INTO courses VALUES (1, 'CS101', 'Intro to Programming', 4, 'CS', 'Dr. Ahmad')")
+                cursor.execute("INSERT INTO courses VALUES (2, 'CS201', 'Data Structures', 4, 'CS', 'Dr. Fatima')")
+                cursor.execute("INSERT INTO courses VALUES (3, 'CS301', 'Database Systems', 3, 'CS', 'Dr. Hassan')")
+                g.db.commit()
+            cursor.close()
+            
         return g.db
 
 def get_auth_db():
