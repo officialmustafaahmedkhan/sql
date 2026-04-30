@@ -95,7 +95,7 @@ DB_CONFIG = {
     'database': db_name,
     'charset': 'utf8mb4',
     'cursorclass': pymysql.cursors.DictCursor,
-    'ssl': {'check_hostname': True}
+    'ssl': {'verify_cert': True}
 }
 
 print("[DB] Database config initialized!")
