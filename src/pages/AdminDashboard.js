@@ -3,7 +3,7 @@ import { Users, Play, CheckCircle, XCircle, Clock, Activity } from 'lucide-react
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
 
-const API_URL = 'https://sql-lab-new.onrender.com/api';
+const API_URL = process.env.REACT_APP_API_URL || 'https://sql-lab-new.onrender.com/api';
 
 function AdminDashboard() {
   const [stats, setStats] = useState({
