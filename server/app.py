@@ -822,12 +822,38 @@ def get_practices():
 # ==================== ADMIN ROUTES ====================
 
 def is_admin(user_id):
-    auth_db = get_auth_db()
-    auth_cursor = auth_db.cursor()
-    auth_cursor.execute('SELECT role FROM users WHERE id = ?', (user_id,))
-    user = auth_cursor.fetchone()
-    auth_cursor.close()
-    return user and user[0] == 'admin'
+    try:
+        auth_db = get_auth_db()
+        auth_cursor = auth_db.cursor()
+        auth_cursor.execute('SELECT role FROM users WHERE id = ?', (int(user_id),))
+        user = auth_cursor.fetchone()
+        auth_cursor.close()
+        return user and user[0] == 'admin'
+    except Exception:
+        return False
+
+@app.route('/api/admin/claim', methods=['POST'])
+@jwt_required()
+def claim_admin():
+    """Make yourself admin if no admin exists yet"""
+    try:
+        user_id = int(get_jwt_identity())
+        auth_db = get_auth_db()
+        auth_cursor = auth_db.cursor()
+        
+        auth_cursor.execute('SELECT COUNT(*) FROM users WHERE role = ?', ('admin',))
+        admin_count = auth_cursor.fetchone()[0]
+        
+        if admin_count == 0:
+            auth_cursor.execute('UPDATE users SET role = ? WHERE id = ?', ('admin', user_id))
+            auth_db.commit()
+            auth_cursor.close()
+            return jsonify({'message': 'You are now admin!'})
+        
+        auth_cursor.close()
+        return jsonify({'error': 'Admin already exists'}), 403
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/admin/stats', methods=['GET'])
 @jwt_required()
