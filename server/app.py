@@ -562,6 +562,7 @@ def get_profile():
 @app.route('/api/query/execute', methods=['POST'])
 @jwt_required()
 def execute_query():
+    print("[DEBUG] execute_query called")
     import traceback
     try:
         user_id = int(get_jwt_identity())
@@ -686,9 +687,9 @@ def execute_query():
         })
     except Exception as e:
         import traceback
-        print(f"[QUERY ERROR] {type(e).__name__}: {e}")
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        print(f"[QUERY ERROR] Type: {type(e).__name__}, Value: {e}")
+        print(f"[QUERY ERROR] Traceback: {traceback.format_exc()}")
+        return jsonify({'error': f'{type(e).__name__}: {e}'}), 500
 
 @app.route('/api/history', methods=['GET'])
 @jwt_required()
