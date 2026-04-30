@@ -566,8 +566,9 @@ def execute_query():
     import traceback
     try:
         user_id = int(get_jwt_identity())
-        data = request.get_json()
-        if data is None:
+        data = request.get_json(silent=True)
+        print(f"[DEBUG] user_id: {user_id}, data: {data}")
+        if data is None or not isinstance(data, dict):
             return jsonify({'error': 'Invalid JSON'}), 400
         sql = data.get('query', '').strip()
         
@@ -805,7 +806,8 @@ def health_check():
         'status': 'ok',
         'database': 'MySQL' if not USE_LOCAL_SQLITE else 'SQLite',
         'use_sqlite': USE_LOCAL_SQLITE,
-        'db_host': os.getenv('DB_HOST', 'NOT_SET')
+        'db_host': os.getenv('DB_HOST', 'NOT_SET'),
+        'raw_env_use_sqlite': os.getenv('USE_LOCAL_SQLITE', 'NOT_SET')
     })
 
 @app.route('/api/db-status', methods=['GET'])
