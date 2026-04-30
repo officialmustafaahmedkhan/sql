@@ -155,12 +155,12 @@ def get_db():
             
             cursor.execute('SELECT COUNT(*) as cnt FROM students')
             if cursor.fetchone()['cnt'] == 0:
-                cursor.execute("INSERT INTO students VALUES (1, 'Ahmed', 'Khan', 'ahmed@iobm.edu.pk', 'CS', 2023, 3.75)")
-                cursor.execute("INSERT INTO students VALUES (2, 'Fatima', 'Ali', 'fatima@iobm.edu.pk', 'Business', 2022, 3.90)")
-                cursor.execute("INSERT INTO students VALUES (3, 'Muhammad', 'Hassan', 'hassan@iobm.edu.pk', 'CS', 2023, 3.50)")
-                cursor.execute("INSERT INTO courses VALUES (1, 'CS101', 'Intro to Programming', 4, 'CS', 'Dr. Ahmad')")
-                cursor.execute("INSERT INTO courses VALUES (2, 'CS201', 'Data Structures', 4, 'CS', 'Dr. Fatima')")
-                cursor.execute("INSERT INTO courses VALUES (3, 'CS301', 'Database Systems', 3, 'CS', 'Dr. Hassan')")
+                cursor.execute("INSERT INTO students (id, first_name, last_name, email, department, enrollment_year, gpa) VALUES (1, 'Ahmed', 'Khan', 'ahmed@iobm.edu.pk', 'CS', 2023, 3.75)")
+                cursor.execute("INSERT INTO students (id, first_name, last_name, email, department, enrollment_year, gpa) VALUES (2, 'Fatima', 'Ali', 'fatima@iobm.edu.pk', 'Business', 2022, 3.90)")
+                cursor.execute("INSERT INTO students (id, first_name, last_name, email, department, enrollment_year, gpa) VALUES (3, 'Muhammad', 'Hassan', 'hassan@iobm.edu.pk', 'CS', 2023, 3.50)")
+                cursor.execute("INSERT INTO courses (id, course_code, course_name, credits, department, instructor) VALUES (1, 'CS101', 'Intro to Programming', 4, 'CS', 'Dr. Ahmad')")
+                cursor.execute("INSERT INTO courses (id, course_code, course_name, credits, department, instructor) VALUES (2, 'CS201', 'Data Structures', 4, 'CS', 'Dr. Fatima')")
+                cursor.execute("INSERT INTO courses (id, course_code, course_name, credits, department, instructor) VALUES (3, 'CS301', 'Database Systems', 3, 'CS', 'Dr. Hassan')")
                 g.db.commit()
             cursor.close()
             
