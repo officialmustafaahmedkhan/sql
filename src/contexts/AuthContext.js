@@ -40,12 +40,12 @@ export function AuthProvider({ children }) {
   };
 
   const signup = async (name, email, password) => {
-    const response = await axios.post(`${API_URL}/auth/signup`, { name, email, password });
-    const { token, user: userData } = response.data;
-    localStorage.setItem('token', token);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    setUser(userData);
-    return { success: true };
+    try {
+      const response = await axios.post(`${API_URL}/auth/signup`, { name, email, password });
+      return { success: true, message: response.data.message };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.error || 'Signup failed' };
+    }
   };
 
   const logout = () => {

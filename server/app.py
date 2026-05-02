@@ -390,6 +390,16 @@ def signup():
             )
         ''')
         
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS pending_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
         auth_db.commit()
         
         # Now get data
@@ -404,32 +414,33 @@ def signup():
         # Hash
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         
-        # Check
+        # Check if already in users
         cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
         if cursor.fetchone():
             cursor.close()
             return jsonify({'error': 'Email registered'}), 409
         
-        # Insert
-        # Insert - first user is admin
-        cursor.execute('SELECT COUNT(*) FROM users')
-        count = cursor.fetchone()[0]
-        role = 'admin' if count == 1 else 'student'
+        # Check if already pending
+        cursor.execute('SELECT id FROM pending_requests WHERE email = ?', (email,))
+        if cursor.fetchone():
+            cursor.close()
+            return jsonify({'error': 'Request already pending'}), 409
         
-        cursor.execute('INSERT INTO users (name, email, password, is_verified, role) VALUES (?, ?, ?, ?, ?)',
-            (name, email, hashed, 1, role))
-        
-        # OTP
-        otp = generate_otp()
-        cursor.execute('INSERT INTO otp_codes (email, otp, expires_at) VALUES (?, ?, ?)',
-            (email, otp, datetime.now()))
-        
+        # Insert into pending
+        cursor.execute('INSERT INTO pending_requests (name, email, password) VALUES (?, ?, ?)',
+                    (name, email, hashed))
         auth_db.commit()
         cursor.close()
         
-        return jsonify({'message': 'OK', 'email': email, 'otp': otp}), 201
-        
+        return jsonify({
+            'message': 'Signup request submitted. Waiting for admin approval.',
+            'email': email
+        }), 201
+    
     except Exception as e:
+        import traceback
+        print(f"[SIGNUP ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/auth/verify-otp', methods=['POST'])
@@ -953,21 +964,34 @@ def approve_user():
             return jsonify({'error': 'Request not found'}), 404
         
         if action == 'approve':
+            # Check if already in users
+            auth_cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
+            if auth_cursor.fetchone():
+                auth_cursor.close()
+                return jsonify({'error': 'User already approved'}), 409
+            
+            # Get user info from pending
             if USE_LOCAL_SQLITE:
                 name = pending[1]
-                password = pending[3]
+                password = pending[2]
             else:
-                name = pending[1]
-                password = pending[3]
+                name = pending['name']
+                password = pending['password']
             
+            # Count users for role
             auth_cursor.execute('SELECT COUNT(*) as cnt FROM users')
-            count = auth_cursor.fetchone()
-            count = count[0] if USE_LOCAL_SQLITE else count['cnt']
+            row = auth_cursor.fetchone()
+            count = row[0] if USE_LOCAL_SQLITE else row['cnt']
             role = 'admin' if count == 0 else 'student'
             
-            auth_cursor.execute('INSERT INTO users (name, email, password, role, is_verified) VALUES (?, ?, ?, ?, 1)', (name, email, password, role))
+            # Insert into users (verified)
+            auth_cursor.execute('INSERT INTO users (name, email, password, role, is_verified) VALUES (?, ?, ?, ?, 1)',
+                        (name, email, password, role))
+            
+            # Delete from pending
             auth_cursor.execute('DELETE FROM pending_requests WHERE email = ?', (email,))
         else:
+            # Reject - just delete from pending
             auth_cursor.execute('DELETE FROM pending_requests WHERE email = ?', (email,))
         
         auth_db.commit()
@@ -975,6 +999,9 @@ def approve_user():
         
         return jsonify({'message': f'User {action}d successfully'})
     except Exception as e:
+        import traceback
+        print(f"[APPROVE ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/admin/history', methods=['GET'])
