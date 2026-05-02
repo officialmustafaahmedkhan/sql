@@ -1187,6 +1187,7 @@ def db_status():
 
 if __name__ == '__main__':
     print("Starting SQL Lab Backend...")
-    with app.app_context():
-        init_database()
+    if not db_host:  # Only init SQLite if not using MySQL
+        with app.app_context():
+            init_database()
     app.run(host='0.0.0.0', port=5000, debug=False)
