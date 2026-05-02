@@ -940,19 +940,26 @@ def get_pending_requests():
         auth_db = get_db()
         auth_cursor = auth_db.cursor()
         
-        auth_cursor.execute('CREATE TABLE IF NOT EXISTS pending_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT UNIQUE, password TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)')
-        auth_db.commit()
+        # Table already created in get_db(), no need to create here
         
-        if USE_LOCAL_SQLITE:
+        # Use proper placeholder based on database
+        if db_host:
             auth_cursor.execute('SELECT * FROM pending_requests ORDER BY created_at DESC')
-            rows = auth_cursor.fetchall()
-            requests = [dict(row) for row in rows]
         else:
             auth_cursor.execute('SELECT * FROM pending_requests ORDER BY created_at DESC')
-            requests = auth_cursor.fetchall()
         
+        requests = auth_cursor.fetchall()
         auth_cursor.close()
-        return jsonify({'pending': requests})
+        
+        # Convert to list of dicts for JSON response
+        if db_host:
+            # MySQL returns list of dicts
+            pending_list = requests
+        else:
+            # SQLite returns list of tuples, convert to dict
+            pending_list = [{'id': r[0], 'name': r[1], 'email': r[2], 'status': r[4] if len(r) > 4 else 'pending'} for r in requests]
+        
+        return jsonify({'pending': pending_list})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -974,7 +981,12 @@ def approve_user():
         auth_db = get_db()
         auth_cursor = auth_db.cursor()
         
-        auth_cursor.execute('SELECT * FROM pending_requests WHERE email = ?', (email,))
+        # Use proper placeholder
+        if db_host:
+            auth_cursor.execute('SELECT * FROM pending_requests WHERE email = %s', (email,))
+        else:
+            auth_cursor.execute('SELECT * FROM pending_requests WHERE email = ?', (email,))
+        
         pending = auth_cursor.fetchone()
         
         if not pending:
@@ -983,34 +995,50 @@ def approve_user():
         
         if action == 'approve':
             # Get user info from pending
-            if USE_LOCAL_SQLITE:
-                name = pending[1]
-                password = pending[2]
-            else:
-                name = pending['name']
-                password = pending['password']
+            name = pending['name'] if db_host else pending[1]
+            password_hash = pending['password_hash'] if db_host else pending[2]
             
             # Check if already in users
-            auth_cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
+            if db_host:
+                auth_cursor.execute('SELECT id FROM users WHERE email = %s', (email,))
+            else:
+                auth_cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
+            
             if auth_cursor.fetchone():
                 auth_cursor.close()
                 return jsonify({'error': 'User already approved'}), 409
             
-            # Count users for role
-            auth_cursor.execute('SELECT COUNT(*) as cnt FROM users')
-            row = auth_cursor.fetchone()
-            count = row[0] if USE_LOCAL_SQLITE else row['cnt']
+            # Count users for role (first user = admin)
+            if db_host:
+                auth_cursor.execute('SELECT COUNT(*) as cnt FROM users')
+                row = auth_cursor.fetchone()
+                count = row['cnt']
+            else:
+                auth_cursor.execute('SELECT COUNT(*) FROM users')
+                row = auth_cursor.fetchone()
+                count = row[0]
+            
             role = 'admin' if count == 0 else 'student'
             
             # Insert into users (verified)
-            cursor.execute('INSERT INTO users (name, email, password, role, is_verified) VALUES (?, ?, ?, ?, 1)',
-                        (name, email, password, role))
+            if db_host:
+                auth_cursor.execute('INSERT INTO users (name, email, password_hash, is_admin, is_verified) VALUES (%s, %s, %s, %s, %s)',
+                            (name, email, password_hash, (role == 'admin'), True))
+            else:
+                auth_cursor.execute('INSERT INTO users (name, email, password, role, is_verified) VALUES (?, ?, ?, ?, 1)',
+                            (name, email, password_hash, role))
             
             # Delete from pending
-            auth_cursor.execute('DELETE FROM pending_requests WHERE email = ?', (email,))
+            if db_host:
+                auth_cursor.execute('DELETE FROM pending_requests WHERE email = %s', (email,))
+            else:
+                auth_cursor.execute('DELETE FROM pending_requests WHERE email = ?', (email,))
         else:
             # Reject - just delete from pending
-            auth_cursor.execute('DELETE FROM pending_requests WHERE email = ?', (email,))
+            if db_host:
+                auth_cursor.execute('DELETE FROM pending_requests WHERE email = %s', (email,))
+            else:
+                auth_cursor.execute('DELETE FROM pending_requests WHERE email = ?', (email,))
         
         auth_db.commit()
         auth_cursor.close()
