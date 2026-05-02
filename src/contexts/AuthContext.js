@@ -45,10 +45,9 @@ export function AuthProvider({ children }) {
 
   const signup = async (name, email, password) => {
     try {
-      const response = await axios.post(`${API_URL}/auth/signup`, { name, email, password });
-      const { email: userEmail } = response.data;
+      await axios.post(`${API_URL}/auth/signup`, { name, email, password });
       // User is auto-verified, so login directly
-      const loginResult = await login(email, password);
+      await login(email, password);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.response?.data?.error || 'Signup failed' };
