@@ -31,7 +31,7 @@ jwt = JWTManager(app)
 # Email Configuration
 RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
 FROM_EMAIL = os.getenv('EMAIL_FROM', 'onboarding@resend.dev')
-FROM_NAME = 'SQL Lab'
+FROM_NAME = 'SQL Lab Admin'
 
 def send_email(to_email, subject, html_content):
     try:
@@ -381,11 +381,11 @@ def signup():
         ''')
         
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS otp_codes (
+            CREATE TABLE IF NOT EXISTS pending_requests (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT NOT NULL,
-                otp TEXT NOT NULL,
-                expires_at DATETIME NOT NULL,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -410,18 +410,41 @@ def signup():
             cursor.close()
             return jsonify({'error': 'Email already registered'}), 409
         
-        # Insert - first user is admin
-        cursor.execute('SELECT COUNT(*) FROM users')
-        count = cursor.fetchone()[0]
-        role = 'admin' if count == 0 else 'student'
+        # Check if already pending
+        cursor.execute('SELECT id FROM pending_requests WHERE email = ?', (email,))
+        if cursor.fetchone():
+            cursor.close()
+            return jsonify({'error': 'Request already pending'}), 409
         
-        cursor.execute('INSERT INTO users (name, email, password, is_verified, role) VALUES (?, ?, ?, 1, ?)',
-                    (name, email, hashed, role))
+        # Insert into pending_requests
+        cursor.execute('INSERT INTO pending_requests (name, email, password) VALUES (?, ?, ?)',
+                    (name, email, hashed))
         auth_db.commit()
+        
+        # Notify admin (send OTP via email or print)
+        otp = generate_otp()
+        cursor.execute('INSERT INTO otp_codes (email, otp, expires_at) VALUES (?, ?, ?)',
+                    ('admin_approval', otp, datetime.now()))
+        auth_db.commit()
+        
+        # Send email to admin
+        admin_email = os.getenv('ADMIN_EMAIL', 'admin@iobm.edu.pk')
+        send_email(
+            admin_email,
+            'New User Signup Approval Needed',
+            f'''
+            <h2>New User Signup Request</h2>
+            <p><strong>Name:</strong> {name}<br>
+            <strong>Email:</strong> {email}<br>
+            <strong>OTP for approval:</strong> <span style="font-size:20px;color:blue;">{otp}</span></p>
+            <p>Go to <a href="https://maksqlcompiler.netlify.app/pending">Admin Panel</a> to approve/reject.</p>
+            '''
+        )
+        
         cursor.close()
         
         return jsonify({
-            'message': 'Account created successfully!',
+            'message': 'Signup request submitted. Waiting for admin approval.',
             'email': email
         }), 201
     
@@ -952,12 +975,6 @@ def approve_user():
             return jsonify({'error': 'Request not found'}), 404
         
         if action == 'approve':
-            # Check if already in users
-            auth_cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
-            if auth_cursor.fetchone():
-                auth_cursor.close()
-                return jsonify({'error': 'User already approved'}), 409
-            
             # Get user info from pending
             if USE_LOCAL_SQLITE:
                 name = pending[1]
@@ -966,6 +983,12 @@ def approve_user():
                 name = pending['name']
                 password = pending['password']
             
+            # Check if already in users
+            auth_cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
+            if auth_cursor.fetchone():
+                auth_cursor.close()
+                return jsonify({'error': 'User already approved'}), 409
+            
             # Count users for role
             auth_cursor.execute('SELECT COUNT(*) as cnt FROM users')
             row = auth_cursor.fetchone()
@@ -973,7 +996,7 @@ def approve_user():
             role = 'admin' if count == 0 else 'student'
             
             # Insert into users (verified)
-            auth_cursor.execute('INSERT INTO users (name, email, password, role, is_verified) VALUES (?, ?, ?, ?, 1)',
+            cursor.execute('INSERT INTO users (name, email, password, role, is_verified) VALUES (?, ?, ?, ?, 1)',
                         (name, email, password, role))
             
             # Delete from pending
