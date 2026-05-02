@@ -420,18 +420,9 @@ def signup():
         auth_db.commit()
         cursor.close()
         
-        # OTP for verification (optional)
-        otp = generate_otp()
-        cursor = auth_db.cursor()
-        cursor.execute('INSERT INTO otp_codes (email, otp, expires_at) VALUES (?, ?, ?)',
-                    (email, otp, datetime.now()))
-        auth_db.commit()
-        cursor.close()
-        
         return jsonify({
             'message': 'Account created successfully!',
-            'email': email,
-            'otp': otp  # For dev/demo, in production send via email
+            'email': email
         }), 201
     
     except Exception as e:
