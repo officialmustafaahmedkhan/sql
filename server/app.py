@@ -121,133 +121,81 @@ ALLOWED_STATEMENTS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE',
                   'IN', 'BETWEEN', 'LIKE', 'IS NULL', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX']
 
 def get_db():
-    if USE_LOCAL_SQLITE:
+    if not db_host:  # Use SQLite
         if 'sql_db' not in g:
             import sqlite3
             g.sql_db = sqlite3.connect(SQL_DB_PATH)
             g.sql_db.row_factory = sqlite3.Row
-            # Auto-create tables
             cursor = g.sql_db.cursor()
+            # Auth tables for SQLite
+            cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL, email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL, role TEXT DEFAULT 'student',
+                is_verified INTEGER DEFAULT 0, is_admin INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS otp_codes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL, otp TEXT NOT NULL,
+                expires_at DATETIME NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS pending_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL, email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                status TEXT DEFAULT 'pending'
+            )''')
+            # Data tables for SQLite
             cursor.execute('''CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY, first_name TEXT, last_name TEXT, email TEXT UNIQUE, department TEXT, enrollment_year INTEGER, gpa REAL)''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS courses (id INTEGER PRIMARY KEY, course_code TEXT UNIQUE, course_name TEXT, credits INTEGER, department TEXT, instructor TEXT)''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY, student_id INTEGER, course_id INTEGER, grade TEXT, semester TEXT)''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS query_logs (id INTEGER PRIMARY KEY, user_id INTEGER, query_text TEXT, query_type TEXT, execution_time_ms INTEGER, rows_affected INTEGER, status TEXT, error_message TEXT, timestamp TEXT)''')
-            # Sample data
-            cursor.execute('SELECT COUNT(*) FROM students')
-            if cursor.fetchone()[0] == 0:
-                cursor.execute("INSERT INTO students VALUES (1, 'Ahmed', 'Khan', 'ahmed@iobm.edu.pk', 'Computer Science', 2023, 3.75)")
-                cursor.execute("INSERT INTO students VALUES (2, 'Fatima', 'Ali', 'fatima@iobm.edu.pk', 'Business Admin', 2022, 3.90)")
-                cursor.execute("INSERT INTO students VALUES (3, 'Muhammad', 'Hassan', 'hassan@iobm.edu.pk', 'Computer Science', 2023, 3.50)")
-                cursor.execute("INSERT INTO courses VALUES (1, 'CS101', 'Introduction to Programming', 4, 'Computer Science', 'Dr. Ahmad')")
-                cursor.execute("INSERT INTO courses VALUES (2, 'CS201', 'Data Structures', 4, 'Computer Science', 'Dr. Fatima')")
-                cursor.execute("INSERT INTO courses VALUES (3, 'CS301', 'Database Systems', 3, 'Computer Science', 'Dr. Hassan')")
             g.sql_db.commit()
         return g.sql_db
-    else:
+    else:  # Use MySQL/TiDB
         if 'db' not in g:
             g.db = pymysql.connect(**DB_CONFIG)
-            
             cursor = g.db.cursor()
-            # Auth tables
+            # Auth tables for MySQL
             cursor.execute('''CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                email VARCHAR(255) UNIQUE NOT NULL,
+                name VARCHAR(255) NOT NULL, email VARCHAR(255) UNIQUE NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
-                is_admin BOOLEAN DEFAULT FALSE,
-                is_verified BOOLEAN DEFAULT TRUE,
+                is_admin BOOLEAN DEFAULT FALSE, is_verified BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS otp_codes (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                email VARCHAR(255) NOT NULL,
-                otp VARCHAR(10) NOT NULL,
+                email VARCHAR(255) NOT NULL, otp VARCHAR(10) NOT NULL,
                 expires_at DATETIME NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS pending_requests (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                email VARCHAR(255) UNIQUE NOT NULL,
+                name VARCHAR(255) NOT NULL, email VARCHAR(255) UNIQUE NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
                 requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 status VARCHAR(20) DEFAULT 'pending'
             )''')
-            # Data tables
+            # Data tables for MySQL
             cursor.execute('''CREATE TABLE IF NOT EXISTS students (id INT AUTO_INCREMENT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), email VARCHAR(100) UNIQUE, department VARCHAR(50), enrollment_year INT, gpa FLOAT)''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS courses (id INT AUTO_INCREMENT PRIMARY KEY, course_code VARCHAR(20) UNIQUE, course_name VARCHAR(100), credits INT, department VARCHAR(50), instructor VARCHAR(50))''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS enrollments (id INT AUTO_INCREMENT PRIMARY KEY, student_id INT, course_id INT, grade VARCHAR(5), semester VARCHAR(20))''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS query_logs (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, query_text TEXT, query_type VARCHAR(50), execution_time_ms INT, rows_affected INT DEFAULT 0, status VARCHAR(20), error_message TEXT, timestamp DATETIME)''')
-            
-            cursor.execute('SELECT COUNT(*) as cnt FROM students')
-            if cursor.fetchone()['cnt'] == 0:
-                cursor.execute("INSERT INTO students (id, first_name, last_name, email, department, enrollment_year, gpa) VALUES (1, 'Ahmed', 'Khan', 'ahmed@iobm.edu.pk', 'CS', 2023, 3.75)")
-                cursor.execute("INSERT INTO students (id, first_name, last_name, email, department, enrollment_year, gpa) VALUES (2, 'Fatima', 'Ali', 'fatima@iobm.edu.pk', 'Business', 2022, 3.90)")
-                cursor.execute("INSERT INTO students (id, first_name, last_name, email, department, enrollment_year, gpa) VALUES (3, 'Muhammad', 'Hassan', 'hassan@iobm.edu.pk', 'CS', 2023, 3.50)")
-                cursor.execute("INSERT INTO courses (id, course_code, course_name, credits, department, instructor) VALUES (1, 'CS101', 'Intro to Programming', 4, 'CS', 'Dr. Ahmad')")
-                cursor.execute("INSERT INTO courses (id, course_code, course_name, credits, department, instructor) VALUES (2, 'CS201', 'Data Structures', 4, 'CS', 'Dr. Fatima')")
-                cursor.execute("INSERT INTO courses (id, course_code, course_name, credits, department, instructor) VALUES (3, 'CS301', 'Database Systems', 3, 'CS', 'Dr. Hassan')")
-                g.db.commit()
             cursor.close()
-            
         return g.db
-
-def get_auth_db():
-    if not db_host:  # Use SQLite if DB_HOST is not set
-        if 'auth_db' not in g:
-            import sqlite3
-            g.auth_db = sqlite3.connect(AUTH_DB_PATH)
-            # Create auth tables in SQLite
-            cursor = g.auth_db.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    email TEXT UNIQUE NOT NULL,
-                    password TEXT NOT NULL,
-                    role TEXT DEFAULT 'student',
-                    is_verified INTEGER DEFAULT 0,
-                    is_admin INTEGER DEFAULT 0,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS otp_codes (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    email TEXT NOT NULL,
-                    otp TEXT NOT NULL,
-                    expires_at DATETIME NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS pending_requests (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    email TEXT UNIQUE NOT NULL,
-                    password TEXT NOT NULL,
-                    requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    status TEXT DEFAULT 'pending'
-                )
-            ''')
-            g.auth_db.commit()
-        return g.auth_db
-    else:
-        return get_db()
 
 @app.teardown_appcontext
 def close_db(exception):
-    if USE_LOCAL_SQLITE:
-        sql_db = g.pop('sql_db', None)
-        if sql_db is not None:
-            sql_db.close()
-    else:
-        db = g.pop('db', None)
-        if db is not None:
-            db.close()
-    auth_db = g.pop('auth_db', None)
-    if auth_db is not None:
-        auth_db.close()
+    sql_db = g.pop('sql_db', None)
+    if sql_db is not None:
+        sql_db.close()
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
 
 def init_database():
     import sqlite3
@@ -428,7 +376,7 @@ def split_queries(sql):
 def signup():
     try:
         # Ensure tables exist
-        auth_db = get_auth_db()
+        auth_db = get_db()
         cursor = auth_db.cursor()
         
         cursor.execute('''
@@ -526,7 +474,7 @@ def verify_otp():
     if not all([email, otp]):
         return jsonify({'error': 'Email and OTP required'}), 400
     
-    auth_db = get_auth_db()
+    auth_db = get_db()
     auth_cursor = auth_db.cursor()
     
     auth_cursor.execute(
@@ -577,7 +525,7 @@ def login():
         if not email or not password:
             return jsonify({'error': 'Email and password required'}), 400
         
-        auth_db = get_auth_db()
+        auth_db = get_db()
         auth_cursor = auth_db.cursor()
         
         auth_cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
@@ -617,7 +565,7 @@ def get_profile():
     try:
         user_id = int(get_jwt_identity())
         
-        auth_db = get_auth_db()
+        auth_db = get_db()
         auth_cursor = auth_db.cursor()
         auth_cursor.execute(
             'SELECT id, name, email, role, is_verified FROM users WHERE id = ?',
@@ -908,7 +856,7 @@ def get_practices():
 
 def is_admin(user_id):
     try:
-        auth_db = get_auth_db()
+        auth_db = get_db()
         auth_cursor = auth_db.cursor()
         auth_cursor.execute('SELECT role FROM users WHERE id = ?', (int(user_id),))
         user = auth_cursor.fetchone()
@@ -923,7 +871,7 @@ def claim_admin():
     """Make yourself admin if no admin exists yet"""
     try:
         user_id = int(get_jwt_identity())
-        auth_db = get_auth_db()
+        auth_db = get_db()
         auth_cursor = auth_db.cursor()
         
         auth_cursor.execute('SELECT COUNT(*) FROM users WHERE role = ?', ('admin',))
@@ -948,7 +896,7 @@ def admin_stats():
         if not is_admin(user_id):
             return jsonify({'error': 'Admin access required'}), 403
         
-        auth_db = get_auth_db()
+        auth_db = get_db()
         auth_cursor = auth_db.cursor()
         auth_cursor.execute('SELECT COUNT(*) as total_users FROM users')
         row = auth_cursor.fetchone()
@@ -993,7 +941,7 @@ def get_pending_requests():
         if not is_admin(user_id):
             return jsonify({'error': 'Admin access required'}), 403
         
-        auth_db = get_auth_db()
+        auth_db = get_db()
         auth_cursor = auth_db.cursor()
         
         auth_cursor.execute('CREATE TABLE IF NOT EXISTS pending_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT UNIQUE, password TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)')
@@ -1027,7 +975,7 @@ def approve_user():
         if not email or action not in ['approve', 'reject']:
             return jsonify({'error': 'Email and action required'}), 400
         
-        auth_db = get_auth_db()
+        auth_db = get_db()
         auth_cursor = auth_db.cursor()
         
         auth_cursor.execute('SELECT * FROM pending_requests WHERE email = ?', (email,))
@@ -1126,7 +1074,7 @@ def make_admin():
         if not target_email:
             return jsonify({'error': 'Email required'}), 400
         
-        auth_db = get_auth_db()
+        auth_db = get_db()
         auth_cursor = auth_db.cursor()
         auth_cursor.execute('UPDATE users SET role = "admin" WHERE email = ?', (target_email,))
         auth_db.commit()
@@ -1144,7 +1092,7 @@ def get_all_users():
         if not is_admin(user_id):
             return jsonify({'error': 'Admin access required'}), 403
         
-        auth_db = get_auth_db()
+        auth_db = get_db()
         auth_cursor = auth_db.cursor()
         
         if USE_LOCAL_SQLITE:
