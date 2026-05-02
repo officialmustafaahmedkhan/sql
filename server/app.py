@@ -148,6 +148,32 @@ def get_db():
             g.db = pymysql.connect(**DB_CONFIG)
             
             cursor = g.db.cursor()
+            # Auth tables
+            cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                is_admin BOOLEAN DEFAULT FALSE,
+                is_verified BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS otp_codes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                email VARCHAR(255) NOT NULL,
+                otp VARCHAR(10) NOT NULL,
+                expires_at DATETIME NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS pending_requests (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status VARCHAR(20) DEFAULT 'pending'
+            )''')
+            # Data tables
             cursor.execute('''CREATE TABLE IF NOT EXISTS students (id INT AUTO_INCREMENT PRIMARY KEY, first_name VARCHAR(50), last_name VARCHAR(50), email VARCHAR(100) UNIQUE, department VARCHAR(50), enrollment_year INT, gpa FLOAT)''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS courses (id INT AUTO_INCREMENT PRIMARY KEY, course_code VARCHAR(20) UNIQUE, course_name VARCHAR(100), credits INT, department VARCHAR(50), instructor VARCHAR(50))''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS enrollments (id INT AUTO_INCREMENT PRIMARY KEY, student_id INT, course_id INT, grade VARCHAR(5), semester VARCHAR(20))''')
@@ -167,10 +193,48 @@ def get_db():
         return g.db
 
 def get_auth_db():
-    if 'auth_db' not in g:
-        import sqlite3
-        g.auth_db = sqlite3.connect(AUTH_DB_PATH)
-    return g.auth_db
+    if USE_LOCAL_SQLITE:
+        if 'auth_db' not in g:
+            import sqlite3
+            g.auth_db = sqlite3.connect(AUTH_DB_PATH)
+            # Create auth tables
+            cursor = g.auth_db.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    role TEXT DEFAULT 'student',
+                    is_verified INTEGER DEFAULT 0,
+                    is_admin INTEGER DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS otp_codes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT NOT NULL,
+                    otp TEXT NOT NULL,
+                    expires_at DATETIME NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS pending_requests (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    requested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    status TEXT DEFAULT 'pending'
+                )
+            ''')
+            g.auth_db.commit()
+        return g.auth_db
+    else:
+        # Use same MySQL connection for auth
+        return get_db()
 
 @app.teardown_appcontext
 def close_db(exception):
