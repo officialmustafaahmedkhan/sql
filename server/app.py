@@ -193,11 +193,11 @@ def get_db():
         return g.db
 
 def get_auth_db():
-    if USE_LOCAL_SQLITE:
+    if not db_host:  # Use SQLite if DB_HOST is not set
         if 'auth_db' not in g:
             import sqlite3
             g.auth_db = sqlite3.connect(AUTH_DB_PATH)
-            # Create auth tables
+            # Create auth tables in SQLite
             cursor = g.auth_db.cursor()
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS users (
@@ -233,7 +233,6 @@ def get_auth_db():
             g.auth_db.commit()
         return g.auth_db
     else:
-        # Use same MySQL connection for auth
         return get_db()
 
 @app.teardown_appcontext
