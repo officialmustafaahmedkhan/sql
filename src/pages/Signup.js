@@ -33,11 +33,11 @@ function Signup() {
 
     try {
       const result = await signup(name, email, password);
-      if (result.pending) {
-        setSuccess(true);
-      } else {
+      if (result.success) {
         alert('Account created! Check your email to verify.');
         navigate('/login');
+      } else {
+        setError(result.error || 'Signup failed');
       }
     } catch (err) {
       setError(err.response?.data?.error || err.message);
@@ -60,14 +60,7 @@ function Signup() {
             {error}
           </div>
         )}
-
-        {success && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--success)', background: 'rgba(16, 185, 129, 0.1)', padding: '12px', borderRadius: '8px', marginBottom: '16px' }}>
-            <CheckCircle size={18} />
-            <span>Signup request submitted! Wait for admin approval.</span>
-          </div>
-        )}
-
+        
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Full Name</label>

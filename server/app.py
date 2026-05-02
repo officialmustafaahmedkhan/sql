@@ -390,16 +390,6 @@ def signup():
             )
         ''')
         
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS pending_requests (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
         auth_db.commit()
         
         # Now get data
@@ -418,23 +408,30 @@ def signup():
         cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
         if cursor.fetchone():
             cursor.close()
-            return jsonify({'error': 'Email registered'}), 409
+            return jsonify({'error': 'Email already registered'}), 409
         
-        # Check if already pending
-        cursor.execute('SELECT id FROM pending_requests WHERE email = ?', (email,))
-        if cursor.fetchone():
-            cursor.close()
-            return jsonify({'error': 'Request already pending'}), 409
+        # Insert - first user is admin
+        cursor.execute('SELECT COUNT(*) FROM users')
+        count = cursor.fetchone()[0]
+        role = 'admin' if count == 0 else 'student'
         
-        # Insert into pending
-        cursor.execute('INSERT INTO pending_requests (name, email, password) VALUES (?, ?, ?)',
-                    (name, email, hashed))
+        cursor.execute('INSERT INTO users (name, email, password, is_verified, role) VALUES (?, ?, ?, 1, ?)',
+                    (name, email, hashed, role))
+        auth_db.commit()
+        cursor.close()
+        
+        # OTP for verification (optional)
+        otp = generate_otp()
+        cursor = auth_db.cursor()
+        cursor.execute('INSERT INTO otp_codes (email, otp, expires_at) VALUES (?, ?, ?)',
+                    (email, otp, datetime.now()))
         auth_db.commit()
         cursor.close()
         
         return jsonify({
-            'message': 'Signup request submitted. Waiting for admin approval.',
-            'email': email
+            'message': 'Account created successfully!',
+            'email': email,
+            'otp': otp  # For dev/demo, in production send via email
         }), 201
     
     except Exception as e:

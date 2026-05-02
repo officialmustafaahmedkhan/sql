@@ -40,12 +40,15 @@ export function AuthProvider({ children }) {
   };
 
   const signup = async (name, email, password) => {
-    try {
-      const response = await axios.post(`${API_URL}/auth/signup`, { name, email, password });
-      return { success: true, message: response.data.message };
-    } catch (error) {
-      return { success: false, error: error.response?.data?.error || 'Signup failed' };
-    }
+    const response = await axios.post(`${API_URL}/auth/signup`, { name, email, password });
+    const { email: userEmail, otp } = response.data;
+    // Auto-verify OTP in development mode
+    const verifyRes = await axios.post(`${API_URL}/auth/verify-otp`, { email: userEmail, otp });
+    const { token, user: userData } = verifyRes.data;
+    localStorage.setItem('token', token);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    setUser(userData);
+    return { success: true };
   };
 
   const logout = () => {
