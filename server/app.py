@@ -511,18 +511,23 @@ def login():
         auth_db = get_db()
         auth_cursor = auth_db.cursor()
         
-        auth_cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
+        # MySQL uses %s, SQLite uses ?
+        if db_host:
+            auth_cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
+        else:
+            auth_cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
+        
         user = auth_cursor.fetchone()
         auth_cursor.close()
         
         if not user:
             return jsonify({'error': 'Invalid email or password'}), 401
         
-        user_id = user[0]
-        user_name = user[1]
-        user_password = user[3]
-        user_role = user[4]
-        user_verified = user[5]
+        user_id = user['id'] if db_host else user[0]
+        user_name = user['name'] if db_host else user[1]
+        user_password = user['password_hash'] if db_host else user[3]
+        user_is_admin = user['is_admin'] if db_host else user[5] if len(user) > 5 else False
+        user_verified = user['is_verified'] if db_host else user[4] if len(user) > 4 else True
         
         if not bcrypt.checkpw(password.encode(), user_password.encode()):
             return jsonify({'error': 'Invalid email or password'}), 401
@@ -535,7 +540,12 @@ def login():
         return jsonify({
             'message': 'Login successful',
             'token': access_token,
-            'user': {'id': user_id, 'name': user_name, 'email': email, 'role': user_role}
+            'user': {
+                'id': user_id, 
+                'name': user_name, 
+                'email': email, 
+                'role': 'admin' if user_is_admin else 'student'
+            }
         })
     except Exception as e:
         print(f"[LOGIN ERROR] {type(e).__name__}: {e}")
