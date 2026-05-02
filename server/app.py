@@ -122,6 +122,7 @@ ALLOWED_STATEMENTS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE',
 
 def get_db():
     if not db_host:  # Use SQLite
+        print(f"[DB] Using SQLite database")
         if 'sql_db' not in g:
             import sqlite3
             g.sql_db = sqlite3.connect(SQL_DB_PATH)
@@ -156,6 +157,7 @@ def get_db():
             g.sql_db.commit()
         return g.sql_db
     else:  # Use MySQL/TiDB
+        print(f"[DB] Using MySQL/TiDB database (host: {db_host})")
         if 'db' not in g:
             g.db = pymysql.connect(**DB_CONFIG)
             cursor = g.db.cursor()
@@ -375,33 +377,10 @@ def split_queries(sql):
 @app.route('/api/auth/signup', methods=['POST'])
 def signup():
     try:
-        # Ensure tables exist
         auth_db = get_db()
         cursor = auth_db.cursor()
         
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                role TEXT DEFAULT 'student',
-                is_verified INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS pending_requests (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
-        auth_db.commit()
+        # Tables are auto-created in get_db(), no need to create here
         
         # Now get data
         data = request.get_json() or {}
@@ -415,27 +394,31 @@ def signup():
         # Hash
         hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         
-        # Check if already in users
-        cursor.execute('SELECT id FROM users WHERE email = ?', (email,))
+        # Check if already in users (MySQL returns dict, SQLite returns tuple)
+        cursor.execute('SELECT id FROM users WHERE email = %s' if db_host else 'SELECT id FROM users WHERE email = ?', (email,))
         if cursor.fetchone():
             cursor.close()
             return jsonify({'error': 'Email already registered'}), 409
         
         # Check if already pending
-        cursor.execute('SELECT id FROM pending_requests WHERE email = ?', (email,))
+        cursor.execute('SELECT id FROM pending_requests WHERE email = %s' if db_host else 'SELECT id FROM pending_requests WHERE email = ?', (email,))
         if cursor.fetchone():
             cursor.close()
             return jsonify({'error': 'Request already pending'}), 409
         
-        # Insert into pending_requests
-        cursor.execute('INSERT INTO pending_requests (name, email, password) VALUES (?, ?, ?)',
-                    (name, email, hashed))
+        # Insert into pending_requests (use password_hash for MySQL, password for SQLite)
+        if db_host:
+            cursor.execute('INSERT INTO pending_requests (name, email, password_hash) VALUES (%s, %s, %s)', (name, email, hashed))
+        else:
+            cursor.execute('INSERT INTO pending_requests (name, email, password) VALUES (?, ?, ?)', (name, email, hashed))
         auth_db.commit()
         
         # Notify admin (send OTP via email or print)
         otp = generate_otp()
-        cursor.execute('INSERT INTO otp_codes (email, otp, expires_at) VALUES (?, ?, ?)',
-                    ('admin_approval', otp, datetime.now()))
+        if db_host:
+            cursor.execute('INSERT INTO otp_codes (email, otp, expires_at) VALUES (%s, %s, %s)', ('admin_approval', otp, datetime.now()))
+        else:
+            cursor.execute('INSERT INTO otp_codes (email, otp, expires_at) VALUES (?, ?, ?)', ('admin_approval', otp, datetime.now()))
         auth_db.commit()
         
         # Send email to admin
@@ -567,10 +550,13 @@ def get_profile():
         
         auth_db = get_db()
         auth_cursor = auth_db.cursor()
-        auth_cursor.execute(
-            'SELECT id, name, email, role, is_verified FROM users WHERE id = ?',
-            (user_id,)
-        )
+        
+        # MySQL returns dict, SQLite returns tuple
+        if db_host:
+            auth_cursor.execute('SELECT id, name, email, is_admin, is_verified FROM users WHERE id = %s', (user_id,))
+        else:
+            auth_cursor.execute('SELECT id, name, email, role, is_verified FROM users WHERE id = ?', (user_id,))
+        
         user = auth_cursor.fetchone()
         auth_cursor.close()
         
@@ -579,11 +565,11 @@ def get_profile():
         
         return jsonify({
             'user': {
-                'id': user[0],
-                'name': user[1],
-                'email': user[2],
-                'role': user[3],
-                'is_verified': user[4]
+                'id': user['id'] if db_host else user[0],
+                'name': user['name'] if db_host else user[1],
+                'email': user['email'] if db_host else user[2],
+                'role': 'admin' if (user['is_admin'] if db_host else user[3]) else 'student',
+                'is_verified': user['is_verified'] if db_host else user[4]
             }
         })
     except Exception as e:
