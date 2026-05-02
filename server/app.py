@@ -63,11 +63,11 @@ db_name = os.getenv('DB_NAME', '')
 db_port = int(os.getenv('DB_PORT', 3306))
 
 # =====================================================
-# ALWAYS USE SQLITE FOR DEPLOYMENT
+# Auto-detect database: Use MySQL if DB_HOST is set, else SQLite
 # =====================================================
-USE_LOCAL_SQLITE = os.getenv('USE_LOCAL_SQLITE', 'true').lower() == 'true'
+USE_LOCAL_SQLITE = not bool(db_host)
 
-print(f"[DB] FORCE SQLite: USE_LOCAL_SQLITE = {USE_LOCAL_SQLITE}")
+print(f"[DB] USE_LOCAL_SQLITE = {USE_LOCAL_SQLITE} (DB_HOST={'set' if db_host else 'not set'})")
 
 # SQLite paths
 SQL_DB_PATH = './sqllab.db'
