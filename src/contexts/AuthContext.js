@@ -31,12 +31,16 @@ export function AuthProvider({ children }) {
   };
 
   const login = async (email, password) => {
-    const response = await axios.post(`${API_URL}/auth/login`, { email, password });
-    const { token, user: userData } = response.data;
-    localStorage.setItem('token', token);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    setUser(userData);
-    return { success: true };
+    try {
+      const response = await axios.post(`${API_URL}/auth/login`, { email, password });
+      const { token, user } = response.data;
+      localStorage.setItem('token', token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setUser(user);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.response?.data?.error || 'Login failed' };
+    }
   };
 
   const signup = async (name, email, password) => {
